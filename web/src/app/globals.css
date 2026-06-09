@@ -1,0 +1,103 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-geist-mono);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+/*
+  Paleta "Inverno Frio" — tela ótica quase branca com leve tom frio, tinta
+  quase preta, e um acento vinho/bordô (cor-joia fria). Prata nos cinzas,
+  nada de bege/dourado. Alto contraste, editorial.
+*/
+:root {
+  --radius: 0.25rem;
+
+  --background: oklch(0.987 0.003 255);
+  --foreground: oklch(0.17 0.012 270);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.17 0.012 270);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.17 0.012 270);
+
+  /* vinho/bordô frio */
+  --primary: oklch(0.41 0.135 8);
+  --primary-foreground: oklch(0.985 0.004 255);
+
+  --secondary: oklch(0.955 0.004 255);
+  --secondary-foreground: oklch(0.22 0.012 270);
+  --muted: oklch(0.955 0.004 255);
+  --muted-foreground: oklch(0.5 0.01 268);
+  --accent: oklch(0.95 0.01 250);
+  --accent-foreground: oklch(0.22 0.012 270);
+  --destructive: oklch(0.55 0.2 25);
+
+  --border: oklch(0.9 0.004 268);
+  --input: oklch(0.9 0.004 268);
+  --ring: oklch(0.41 0.135 8);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+  .tracking-label {
+    letter-spacing: 0.18em;
+  }
+}
+
+/* Revelação escalonada no load */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.fade-up {
+  animation: fade-up 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}

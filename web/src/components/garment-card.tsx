@@ -1,0 +1,39 @@
+import { COLOR_HEX, titleCase } from "@/lib/labels";
+import type { Garment } from "@/lib/wardrobe";
+
+export function GarmentCard({ g, index }: { g: Garment; index: number }) {
+  return (
+    <article
+      className="group fade-up"
+      style={{ animationDelay: `${Math.min(index, 14) * 40}ms` }}
+    >
+      <div className="relative aspect-[3/4] overflow-hidden bg-muted">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/img/${g.id}`}
+          alt={g.description ?? g.category}
+          loading="lazy"
+          className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+        />
+      </div>
+      <div className="mt-3 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="font-display truncate text-base leading-tight">
+            {titleCase(g.subcategory ?? g.category)}
+          </h3>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            {[titleCase(g.primary_color), g.brand].filter(Boolean).join(" · ") ||
+              "—"}
+          </p>
+        </div>
+        {g.primary_color && (
+          <span
+            className="mt-1 h-3 w-3 shrink-0 rounded-full ring-1 ring-border"
+            style={{ backgroundColor: COLOR_HEX[g.primary_color] ?? "#ccc" }}
+            title={titleCase(g.primary_color)}
+          />
+        )}
+      </div>
+    </article>
+  );
+}

@@ -7,3 +7,4 @@ relatorio_ingestao.json
 .env
 .git
 ingest.py
+web
