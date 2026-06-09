@@ -1,0 +1,11 @@
+# Dependências instaladas pela Vercel para a função serverless api/telegram.py.
+# Espelha o subconjunto de runtime do pyproject usado pelo caminho do bot.
+# (pillow-heif fica de fora de propósito: o Telegram entrega JPEG e ele é
+#  importado de forma opcional em imaging.py — economiza bundle na Vercel.)
+google-genai>=1.0.0
+supabase>=2.0.0
+pydantic>=2.0.0
+pillow>=10.0.0
+tenacity>=8.2.0
+httpx>=0.27.0
+python-dotenv>=1.0.0

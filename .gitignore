@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+relatorio_ingestao.json
+fotos_teste/
+.vercel

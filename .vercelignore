@@ -1,0 +1,9 @@
+.venv
+fotos_teste
+__pycache__
+**/__pycache__
+*.pyc
+relatorio_ingestao.json
+.env
+.git
+ingest.py
