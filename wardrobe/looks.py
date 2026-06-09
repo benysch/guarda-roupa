@@ -156,8 +156,39 @@ def _cands(pools: list[list[dict]], category: str, target_rank, season, colors) 
     return []
 
 
+def missing_slots(pieces: list[dict]) -> list[str]:
+    """Slots essenciais ausentes num conjunto de peças (top+bottom ou full_body, + footwear)."""
+    present = {g.get("category") for g in pieces}
+    missing: list[str] = []
+    if Category.FULL_BODY.value not in present:
+        if Category.TOP.value not in present:
+            missing.append(Category.TOP.value)
+        if Category.BOTTOM.value not in present:
+            missing.append(Category.BOTTOM.value)
+    if Category.FOOTWEAR.value not in present:
+        missing.append(Category.FOOTWEAR.value)
+    return missing
+
+
+def candidates(
+    garments: list[dict], occasion: Optional[str] = None, limit: int = 60
+) -> list[dict]:
+    """Acervo elegível para o estilista IA: remove categorias incompatíveis com um
+    look de rua e prioriza as peças da ocasião. Coerência de cor/taste fica com o
+    estilista — aqui só garantimos que as peças existem e fazem sentido no slot."""
+    excluded = set(_EXCLUDED_DEFAULT)
+    if occasion == Occasion.PRAIA.value:
+        excluded.discard(Category.BEACHWEAR.value)
+    if occasion == Occasion.CASA.value:
+        excluded.discard(Category.SLEEPWEAR.value)
+    pool = [g for g in garments if g.get("category") not in excluded]
+    if occasion:
+        pool.sort(key=lambda g: 0 if occasion in (g.get("occasions") or []) else 1)
+    return pool[:limit]
+
+
 # --------------------------------------------------------------------------- #
-# Composição
+# Composição (motor de regras — usado como fallback do estilista IA)
 # --------------------------------------------------------------------------- #
 def compose(
     garments: list[dict],
@@ -199,9 +230,7 @@ def compose(
     prefer_full = bool(full_cands) and (not (top_cands and bottom_cands) or rng.random() < 0.4)
     if prefer_full:
         commit(rng.choice(full_cands))
-        base = "full"
     else:
-        base = "sep"
         if top_cands:
             commit(rng.choice(top_cands))
         # o bottom precisa harmonizar com a cor já escolhida
@@ -234,18 +263,9 @@ def compose(
         if acc:
             commit(rng.choice(acc))
 
-    # --- slots essenciais que faltaram ---
-    present = {g.get("category") for g in chosen}
-    missing: list[str] = []
-    if base == "full":
-        if Category.FULL_BODY.value not in present:
-            missing.append(Category.FULL_BODY.value)
-    else:
-        if Category.TOP.value not in present:
-            missing.append(Category.TOP.value)
-        if Category.BOTTOM.value not in present:
-            missing.append(Category.BOTTOM.value)
-    if Category.FOOTWEAR.value not in present:
-        missing.append(Category.FOOTWEAR.value)
-
-    return Look(pieces=chosen, missing=missing, occasion=occasion, season=season)
+    return Look(
+        pieces=chosen,
+        missing=missing_slots(chosen),
+        occasion=occasion,
+        season=season,
+    )

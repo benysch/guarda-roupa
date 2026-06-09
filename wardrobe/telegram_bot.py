@@ -13,7 +13,7 @@ import logging
 
 import httpx
 
-from . import embeddings, looks, storage
+from . import embeddings, looks, storage, stylist
 from .config import get_settings, get_supabase_client
 from .extractor import ExtractionError, extract_garment
 from .imaging import ImageValidationError, normalize_image
@@ -379,13 +379,30 @@ def _piece_line(g: dict) -> str:
     return f"{label} {name}" + (f" ({extra})" if extra else "")
 
 
-def _look_caption(look: "looks.Look") -> str:
-    titulo = f"Look {look.occasion.replace('_', ' ')}" if look.occasion else "Seu look"
-    head = f"✨ *{titulo}*"
-    if look.season:
-        head += f" · {look.season}"
-    lines = [head, ""] + [f"• {_piece_line(g)}" for g in look.pieces]
+def _look_caption(occasion, season, pieces: list[dict], rationale: str | None) -> str:
+    titulo = f"Look {occasion.replace('_', ' ')}" if occasion else "Seu look"
+    head = f"✨ *{titulo}*" + (f" · {season}" if season else "")
+    lines = [head, ""] + [f"• {_piece_line(g)}" for g in pieces]
+    if rationale:
+        lines += ["", f"_{rationale}_"]
     return "\n".join(lines)
+
+
+def _styled_look(garments, occasion, season) -> tuple[list[dict], str | None]:
+    """Híbrido: regras filtram candidatos -> estilista IA escolhe e explica.
+    Cai no motor de regras se a IA falhar ou não devolver peças válidas."""
+    cands = looks.candidates(garments, occasion)
+    if not cands:
+        return [], None
+    by_id = {g["id"]: g for g in cands}
+    try:
+        styled = stylist.style_look(cands, occasion=occasion, season=season)
+        chosen = [by_id[i] for i in styled.garment_ids if i in by_id]
+        if chosen:
+            return chosen, styled.rationale
+    except Exception:
+        logger.exception("estilista IA falhou; usando o motor de regras")
+    return looks.compose(garments, occasion=occasion, season=season).pieces, None
 
 
 def _handle_look(tg: Telegram, chat_id: int, text: str) -> None:
@@ -394,9 +411,9 @@ def _handle_look(tg: Telegram, chat_id: int, text: str) -> None:
     season = looks.parse_season(args)
 
     garments = storage.fetch_garments()
-    look = looks.compose(garments, occasion=occasion, season=season)
+    pieces, rationale = _styled_look(garments, occasion, season)
 
-    if not look.pieces:
+    if not pieces:
         tg.send_message(
             chat_id,
             "🤔 Ainda não tenho peças suficientes pra montar um look. "
@@ -404,8 +421,8 @@ def _handle_look(tg: Telegram, chat_id: int, text: str) -> None:
         )
         return
 
-    caption = _look_caption(look)
-    urls = [u for g in look.pieces if (u := storage.signed_url(g["image_path"]))]
+    caption = _look_caption(occasion, season, pieces, rationale)
+    urls = [u for g in pieces if (u := storage.signed_url(g["image_path"]))]
     if len(urls) >= 2:
         tg.send_media_group(chat_id, urls, caption)
     elif len(urls) == 1:
@@ -413,8 +430,9 @@ def _handle_look(tg: Telegram, chat_id: int, text: str) -> None:
     else:
         tg.send_message(chat_id, caption)
 
-    if look.missing:
-        faltam = ", ".join(MISSING_LABELS.get(m, m) for m in look.missing)
+    missing = looks.missing_slots(pieces)
+    if missing:
+        faltam = ", ".join(MISSING_LABELS.get(m, m) for m in missing)
         tg.send_message(
             chat_id,
             f"⚠️ Faltou {faltam} pra completar o look. Cadastre essas peças e o look fica completo!",
