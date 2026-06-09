@@ -26,8 +26,51 @@ class handler(BaseHTTPRequestHandler):
         self.wfile.write(body.encode("utf-8"))
 
     def do_GET(self) -> None:
+        from urllib.parse import parse_qs, urlparse
+
+        parsed = urlparse(self.path)
+        if parsed.path in ("/api/look", "/api/search"):
+            self._brain(parsed.path, parse_qs(parsed.query))
+            return
         # healthcheck simples
         self._ok("guarda-roupa bot online")
+
+    def _brain(self, path: str, qs: dict) -> None:
+        """Endpoints JSON do site (protegidos por segredo compartilhado)."""
+        secret = os.getenv("BRAIN_SECRET", "")
+        if secret and self.headers.get("X-Brain-Secret", "") != secret:
+            self.send_response(401)
+            self.end_headers()
+            return
+
+        from wardrobe import webapi
+
+        try:
+            if path == "/api/look":
+                out = webapi.compose_look(
+                    qs.get("occasion", [""])[0], qs.get("season", [""])[0]
+                )
+            else:
+                try:
+                    k = max(1, min(20, int(qs.get("k", ["8"])[0])))
+                except ValueError:
+                    k = 8
+                out = webapi.search((qs.get("q", [""])[0] or "").strip(), k)
+        except Exception:
+            import logging
+
+            logging.getLogger("api.telegram").exception("brain falhou em %s", path)
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"error":"internal"}')
+            return
+
+        body = json.dumps(out, ensure_ascii=False).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(body)
 
     def do_POST(self) -> None:
         settings = get_settings()

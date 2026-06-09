@@ -13,6 +13,8 @@ dependencies = [
     "python-dotenv>=1.0.0",
 ]
 
-# Webhook do Telegram = entrypoint da função Python na Vercel.
+# Entrypoint único da função Python na Vercel: TODO request (qualquer path) cai
+# em api.telegram:handler, que despacha por path (webhook POST /api/telegram,
+# e os endpoints JSON GET /api/look e /api/search para o site).
 [tool.vercel]
 entrypoint = "api.telegram:handler"
