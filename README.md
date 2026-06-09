@@ -27,10 +27,22 @@ uv venv && uv pip install -e .       # ou: uv pip install google-genai supabase 
 cp .env.example .env                 # preencha GEMINI_API_KEY e as chaves do Supabase
 ```
 
-Aplique a migration no Supabase (SQL editor ou MCP `apply_migration`):
+### Migrations
+
+> **Fonte da verdade = histórico do Supabase** (`supabase_migrations.schema_migrations`).
+> O banco é **compartilhado** por 3 apps (`fc_*`, `pe_*`, guarda-roupa), então o
+> histórico global mistura migrations de todos — um fluxo de `supabase db push`
+> por-repositório não se aplica aqui.
+>
+> Os arquivos em `migrations/` são **espelhos fiéis** do SQL já aplicado (1 arquivo
+> por versão registrada), para referência e setup de um banco do zero. **Não**
+> numere migrations à mão: novas migrations só via MCP `apply_migration`, e depois
+> espelhe o arquivo aqui com o nome da versão gerada.
 
 ```
-migrations/001_garments.sql          # cria a tabela garments + índices + bucket privado 'wardrobe'
+migrations/20260607143505_create_garments_table.sql        # garments + índices + bucket 'wardrobe'
+migrations/20260607174451_add_garment_identity_fields.sql  # brand / model_name / material
+migrations/20260607224842_create_telegram_sessions.sql     # estado do bot conversacional
 ```
 
 ## Uso
