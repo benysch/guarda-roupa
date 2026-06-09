@@ -21,7 +21,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
-from wardrobe import storage
+from wardrobe import embeddings, storage
 from wardrobe.config import get_settings
 from wardrobe.extractor import ExtractionError, extract_garment
 from wardrobe.imaging import (
@@ -89,6 +89,13 @@ def process_one(path: Path) -> ItemResult:
         )
     except Exception as exc:  # rede/DB/quota — registra e segue
         return ItemResult(name, "failed", garment_id=garment_id, detail=f"persistência: {exc}")
+
+    # embedding p/ busca semântica — não-fatal: a peça já está persistida
+    try:
+        g = storage.get_garment(garment_id)
+        storage.update_embedding(garment_id, embeddings.embed(embeddings.garment_text(g)))
+    except Exception as exc:
+        logger.warning("embedding falhou para %s: %s", garment_id, exc)
 
     outcome = "needs_review" if status == "needs_review" else "processed"
     return ItemResult(name, outcome, garment_id=garment_id,

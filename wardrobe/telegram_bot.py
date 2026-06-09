@@ -13,7 +13,7 @@ import logging
 
 import httpx
 
-from . import looks, storage
+from . import embeddings, looks, storage
 from .config import get_settings, get_supabase_client
 from .extractor import ExtractionError, extract_garment
 from .imaging import ImageValidationError, normalize_image
@@ -245,6 +245,13 @@ def _handle_photo(tg: Telegram, chat_id: int, msg: dict) -> None:
         status="processed",
     )
 
+    # embedding p/ busca semântica — não-fatal: a peça já está salva
+    try:
+        g0 = storage.get_garment(garment_id)
+        storage.update_embedding(garment_id, embeddings.embed(embeddings.garment_text(g0)))
+    except Exception:
+        logger.exception("falha ao gerar embedding de %s", garment_id)
+
     _ask_confirm(tg, chat_id, garment_id)
 
 
@@ -301,12 +308,18 @@ def _handle_text(tg: Telegram, chat_id: int, text: str) -> None:
             "✨ Ou peça um look pronto:\n"
             "• `/look` — um look qualquer\n"
             "• `/look festa` — por ocasião (festa, trabalho, encontro, praia…)\n"
-            "• `/look trabalho inverno` — ocasião + estação",
+            "• `/look trabalho inverno` — ocasião + estação\n\n"
+            "🔎 Busca por descrição:\n"
+            "• `/buscar blusa leve pra viagem`",
         )
         return
 
     if text.startswith("/look"):
         _handle_look(tg, chat_id, text)
+        return
+
+    if text.startswith("/buscar") or text.startswith("/busca"):
+        _handle_search(tg, chat_id, text)
         return
 
     session = _get_session(chat_id)
@@ -406,3 +419,34 @@ def _handle_look(tg: Telegram, chat_id: int, text: str) -> None:
             chat_id,
             f"⚠️ Faltou {faltam} pra completar o look. Cadastre essas peças e o look fica completo!",
         )
+
+
+def _handle_search(tg: Telegram, chat_id: int, text: str) -> None:
+    parts = text.split(maxsplit=1)
+    query = parts[1].strip() if len(parts) > 1 else ""
+    if not query:
+        tg.send_message(chat_id, "🔎 Use assim: `/buscar blusa leve pra viagem`")
+        return
+
+    try:
+        vec = embeddings.embed(query, embeddings.TASK_QUERY)
+    except Exception:
+        logger.exception("falha ao embeddar a consulta")
+        tg.send_message(chat_id, "😖 Não consegui buscar agora. Tenta de novo em instantes.")
+        return
+
+    matches = storage.match_garments(vec, match_count=5)
+    if not matches:
+        tg.send_message(chat_id, "🤔 Não achei nada parecido no guarda-roupa.")
+        return
+
+    caption = f"🔎 *Resultados para:* {query}\n\n" + "\n".join(
+        f"• {_piece_line(m)} _({round(m.get('similarity', 0) * 100)}%)_" for m in matches
+    )
+    urls = [u for m in matches if (u := storage.signed_url(m["image_path"]))]
+    if len(urls) >= 2:
+        tg.send_media_group(chat_id, urls, caption)
+    elif len(urls) == 1:
+        tg.send_photo(chat_id, urls[0], caption)
+    else:
+        tg.send_message(chat_id, caption)

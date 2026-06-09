@@ -118,6 +118,29 @@ def fetch_garments(statuses: tuple[str, ...] = ("processed",)) -> list[dict]:
     return resp.data or []
 
 
+def _vector_literal(embedding: list[float]) -> str:
+    """Formato textual aceito pelo pgvector via PostgREST: '[1,2,3]'."""
+    return "[" + ",".join(repr(float(x)) for x in embedding) + "]"
+
+
+def update_embedding(garment_id: str, embedding: list[float]) -> None:
+    """Grava o vetor de busca semântica de uma peça."""
+    client = get_supabase_client()
+    client.table(TABLE).update({"embedding": _vector_literal(embedding)}).eq(
+        "id", garment_id
+    ).execute()
+
+
+def match_garments(embedding: list[float], match_count: int = 5) -> list[dict]:
+    """Busca semântica: peças mais próximas do vetor de consulta (via RPC pgvector)."""
+    client = get_supabase_client()
+    resp = client.rpc(
+        "match_garments",
+        {"query_embedding": _vector_literal(embedding), "match_count": match_count},
+    ).execute()
+    return resp.data or []
+
+
 def signed_url(image_path: str, expires_in: int = 600) -> Optional[str]:
     """URL assinada temporária de uma imagem do bucket privado (o Telegram busca por ela)."""
     settings = get_settings()
