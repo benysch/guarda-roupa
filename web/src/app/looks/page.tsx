@@ -4,6 +4,8 @@ import { titleCase } from "@/lib/labels";
 import { LookControls } from "./look-controls";
 
 export const dynamic = "force-dynamic";
+// o estilista (Gemini) pode levar ~10-25s; dá folga à função
+export const maxDuration = 60;
 
 const MISSING_LABEL: Record<string, string> = {
   top: "um top",
