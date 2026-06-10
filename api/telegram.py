@@ -29,18 +29,58 @@ class handler(BaseHTTPRequestHandler):
         from urllib.parse import parse_qs, urlparse
 
         parsed = urlparse(self.path)
+        if parsed.path == "/api/look-image":
+            self._look_image(parse_qs(parsed.query))
+            return
         if parsed.path in ("/api/look", "/api/search", "/api/similar"):
             self._brain(parsed.path, parse_qs(parsed.query))
             return
         # healthcheck simples
         self._ok("guarda-roupa bot online")
 
-    def _brain(self, path: str, qs: dict) -> None:
-        """Endpoints JSON do site (protegidos por segredo compartilhado)."""
+    def _secret_ok(self) -> bool:
         secret = os.getenv("BRAIN_SECRET", "")
         if secret and self.headers.get("X-Brain-Secret", "") != secret:
             self.send_response(401)
             self.end_headers()
+            return False
+        return True
+
+    def _json(self, status: int, obj: dict) -> None:
+        body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _look_image(self, qs: dict) -> None:
+        if not self._secret_ok():
+            return
+        ids = [x for x in (qs.get("ids", [""])[0] or "").split(",") if x]
+        from wardrobe import imagegen
+
+        try:
+            png = imagegen.generate_look_image(
+                ids, qs.get("occasion", [""])[0], qs.get("season", [""])[0]
+            )
+        except imagegen.QuotaError:
+            self._json(503, {"error": "quota"})
+            return
+        except Exception:
+            import logging
+
+            logging.getLogger("api.telegram").exception("look-image falhou")
+            self._json(502, {"error": "falha"})
+            return
+
+        self.send_response(200)
+        self.send_header("Content-Type", "image/png")
+        self.end_headers()
+        self.wfile.write(png)
+
+    def _brain(self, path: str, qs: dict) -> None:
+        """Endpoints JSON do site (protegidos por segredo compartilhado)."""
+        if not self._secret_ok():
             return
 
         from wardrobe import webapi

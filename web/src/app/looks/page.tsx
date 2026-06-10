@@ -2,6 +2,7 @@ import { SiteHeader } from "@/components/site-header";
 import { composeLook, type LookResult } from "@/lib/brain";
 import { titleCase } from "@/lib/labels";
 import { LookControls } from "./look-controls";
+import { LookImageButton } from "./look-image-button";
 
 export const dynamic = "force-dynamic";
 // o estilista (Gemini) pode levar ~10-25s; dá folga à função
@@ -132,6 +133,12 @@ function LookView({ look }: { look: LookResult }) {
           completar o look. Cadastre essas peças pelo bot.
         </p>
       )}
+
+      <LookImageButton
+        ids={look.pieces.map((p) => p.id)}
+        occasion={look.occasion ?? undefined}
+        season={look.season ?? undefined}
+      />
     </article>
   );
 }
