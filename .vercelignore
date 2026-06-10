@@ -8,3 +8,4 @@ relatorio_ingestao.json
 .git
 ingest.py
 web
+tests
