@@ -60,3 +60,12 @@ def search(query: str, k: int = 8) -> dict:
         "query": query,
         "results": [{**_piece(m), "similarity": m.get("similarity")} for m in results],
     }
+
+
+def similar(garment_id: str, k: int = 6) -> dict:
+    """Peças parecidas com uma peça (vizinhos por embedding)."""
+    results = storage.similar_garments(garment_id, k) if garment_id else []
+    return {
+        "id": garment_id,
+        "results": [{**_piece(m), "similarity": m.get("similarity")} for m in results],
+    }

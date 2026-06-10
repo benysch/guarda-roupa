@@ -29,7 +29,7 @@ class handler(BaseHTTPRequestHandler):
         from urllib.parse import parse_qs, urlparse
 
         parsed = urlparse(self.path)
-        if parsed.path in ("/api/look", "/api/search"):
+        if parsed.path in ("/api/look", "/api/search", "/api/similar"):
             self._brain(parsed.path, parse_qs(parsed.query))
             return
         # healthcheck simples
@@ -46,15 +46,18 @@ class handler(BaseHTTPRequestHandler):
         from wardrobe import webapi
 
         try:
+            k = max(1, min(20, int(qs.get("k", ["8"])[0])))
+        except ValueError:
+            k = 8
+
+        try:
             if path == "/api/look":
                 out = webapi.compose_look(
                     qs.get("occasion", [""])[0], qs.get("season", [""])[0]
                 )
+            elif path == "/api/similar":
+                out = webapi.similar(qs.get("id", [""])[0], k)
             else:
-                try:
-                    k = max(1, min(20, int(qs.get("k", ["8"])[0])))
-                except ValueError:
-                    k = 8
                 out = webapi.search((qs.get("q", [""])[0] or "").strip(), k)
         except Exception:
             import logging

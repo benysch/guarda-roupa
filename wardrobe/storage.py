@@ -141,6 +141,26 @@ def match_garments(embedding: list[float], match_count: int = 5) -> list[dict]:
     return resp.data or []
 
 
+def similar_garments(garment_id: str, match_count: int = 6) -> list[dict]:
+    """Peças mais próximas de uma peça (vizinhos por embedding, exclui a própria)."""
+    client = get_supabase_client()
+    resp = client.rpc(
+        "similar_garments", {"source_id": garment_id, "match_count": match_count}
+    ).execute()
+    return resp.data or []
+
+
+def download_image(garment_id: str) -> Optional[bytes]:
+    """Baixa os bytes JPEG de uma peça do bucket privado (para o estilista visual)."""
+    settings = get_settings()
+    client = get_supabase_client()
+    try:
+        return client.storage.from_(settings.supabase_bucket).download(f"{garment_id}.jpg")
+    except Exception:
+        logger.warning("falha ao baixar imagem de %s", garment_id)
+        return None
+
+
 def signed_url(image_path: str, expires_in: int = 600) -> Optional[str]:
     """URL assinada temporária de uma imagem do bucket privado (o Telegram busca por ela)."""
     settings = get_settings()

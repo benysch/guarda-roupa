@@ -1,24 +1,31 @@
 """
-IA estilista: monta UM look escolhendo entre peças reais e explica o porquê,
-aplicando o perfil de coloração da cliente (style_profile).
+IA estilista MULTIMODAL: monta UM look escolhendo entre peças reais e explica o
+porquê, aplicando o perfil de coloração da cliente (style_profile). Além dos
+atributos em texto, manda as FOTOS reais ao Gemini — assim ele julga a cor e a
+textura de verdade (crucial para coloração pessoal), não só a cor-família grossa.
 
-Híbrido: o motor de regras (looks.py) fornece os candidatos válidos (peças que
-existem no acervo, sem categorias incompatíveis); aqui o Gemini exerce o "bom
-gosto" — escolhe a combinação, prioriza as cores que favorecem e justifica.
-Fica preso ao conjunto fornecido (referencia por id), então não inventa roupa.
+Híbrido: o motor de regras (looks.py) fornece os candidatos válidos; aqui o
+Gemini exerce o "bom gosto". Fica preso ao conjunto fornecido (referencia por
+id), então não inventa roupa. Para segurar custo/latência, manda no máximo
+MAX_IMAGES fotos (as mais relevantes da ocasião, baixadas em paralelo).
 """
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 from google.genai import types
 from google.genai.errors import APIError
 from pydantic import BaseModel, Field
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter
 
-from . import style_profile
+from . import storage, style_profile
 from .config import get_gemini_client, get_settings
 
 logger = logging.getLogger(__name__)
+
+# Teto de fotos enviadas por look (bound de custo/latência). looks.candidates já
+# prioriza as peças da ocasião, então o corte pega as mais relevantes.
+MAX_IMAGES = 12
 
 
 class StyledLook(BaseModel):
@@ -36,24 +43,19 @@ class StylistError(RuntimeError):
     """Falha definitiva do estilista (após retries)."""
 
 
-def _candidate_block(candidates: list[dict]) -> str:
-    lines = []
-    for g in candidates:
-        facets = [
-            g.get("subcategory") or g.get("category"),
-            g.get("primary_color"),
-            g.get("material"),
-            g.get("pattern"),
-            g.get("formality"),
-            g.get("brand"),
-        ]
-        attrs = ", ".join(str(f) for f in facets if f)
-        desc = (g.get("description") or "")[:120]
-        lines.append(f'- id={g["id"]} | {g["category"]} | {attrs} | {desc}')
-    return "\n".join(lines)
+def _facets(g: dict) -> str:
+    bits = [
+        g.get("subcategory") or g.get("category"),
+        g.get("primary_color"),
+        g.get("material"),
+        g.get("pattern"),
+        g.get("formality"),
+        g.get("brand"),
+    ]
+    return ", ".join(str(b) for b in bits if b)
 
 
-def _build_prompt(candidates, occasion, season) -> str:
+def _instructions(occasion, season) -> str:
     ctx = []
     if occasion:
         ctx.append(f"ocasião: {occasion.replace('_', ' ')}")
@@ -61,26 +63,28 @@ def _build_prompt(candidates, occasion, season) -> str:
         ctx.append(f"estação: {season}")
     ctx_s = "; ".join(ctx) or "uso geral do dia a dia"
 
-    return f"""Você é uma consultora de moda experiente. Monte UM look coerente e bonito \
-para a cliente usando SOMENTE as peças da lista abaixo (referencie pelo id exato).
+    return f"""Você é uma consultora de moda experiente. A seguir estão as peças \
+disponíveis no guarda-roupa da cliente — cada uma com a FOTO e os atributos, \
+identificada por um id. Monte UM look coerente e bonito, escolhendo SOMENTE \
+entre estas peças (referencie pelo id exato).
 
 Contexto do look: {ctx_s}.
 
 {style_profile.prompt_fragment()}
 
+OLHE AS FOTOS para julgar a cor real e a textura de cada peça (não confie só no \
+rótulo de cor). Priorize as peças cujas cores realmente favorecem a coloração da \
+cliente; evite as que a apagam.
+
 Regras:
 - Um item por slot do corpo. O look precisa de (vestido/macacão) OU (top + bottom), \
 mais um calçado. Outerwear, bolsa e no máximo 1 acessório são opcionais.
-- Respeite a ocasião e a estação informadas.
-- PRIORIZE as peças cujas cores mais favorecem a coloração da cliente; evite as que a apagam.
-- Se faltar algum slot essencial no acervo, monte com o que existe — NÃO invente peças \
-nem use ids que não estão na lista.
+- Respeite a ocasião e a estação.
+- Se faltar algum slot essencial, monte com o que existe — NÃO invente peças nem \
+use ids fora da lista.
 
-Peças disponíveis:
-{_candidate_block(candidates)}
-
-Devolva os ids escolhidos e uma justificativa curta citando por que as cores funcionam \
-para ela."""
+Devolva os ids escolhidos e uma justificativa curta citando por que as cores \
+funcionam para ela."""
 
 
 def _is_retryable(exc: BaseException) -> bool:
@@ -96,12 +100,11 @@ def _is_retryable(exc: BaseException) -> bool:
     wait=wait_exponential_jitter(initial=1, max=20),
     reraise=True,
 )
-def _call_gemini(prompt: str) -> StyledLook:
-    settings = get_settings()
+def _call_gemini(contents: list, model: str) -> StyledLook:
     client = get_gemini_client()
     response = client.models.generate_content(
-        model=settings.gemini_model,
-        contents=prompt,
+        model=model,
+        contents=contents,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
             response_schema=StyledLook,
@@ -115,8 +118,23 @@ def _call_gemini(prompt: str) -> StyledLook:
 
 
 def style_look(candidates: list[dict], occasion=None, season=None) -> StyledLook:
-    """Escolhe um look entre os candidatos. Lança StylistError em falha definitiva."""
+    """Escolhe um look entre os candidatos (com visão). Lança StylistError em falha."""
+    settings = get_settings()
+    visual = candidates[:MAX_IMAGES]
+
+    # baixa as imagens em paralelo (I/O) para não somar latências em série
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        images = list(pool.map(lambda g: storage.download_image(g["id"]), visual))
+
+    contents: list = [_instructions(occasion, season)]
+    for g, img in zip(visual, images):
+        if img:
+            contents.append(f"id={g['id']} — {_facets(g)}:")
+            contents.append(types.Part.from_bytes(data=img, mime_type="image/jpeg"))
+        else:
+            contents.append(f"id={g['id']} — {_facets(g)} (sem foto disponível).")
+
     try:
-        return _call_gemini(_build_prompt(candidates, occasion, season))
+        return _call_gemini(contents, settings.gemini_model)
     except APIError as exc:
         raise StylistError(f"Erro da API Gemini: {exc}") from exc

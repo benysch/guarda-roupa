@@ -22,6 +22,11 @@ export type SearchResult = {
   results: (LookPiece & { similarity: number })[];
 };
 
+export type SimilarResult = {
+  id: string;
+  results: (LookPiece & { similarity: number })[];
+};
+
 function brainUrl(path: string, params: Record<string, string | undefined>): URL {
   const base = process.env.BRAIN_URL;
   if (!base) throw new Error("BRAIN_URL ausente no ambiente.");
@@ -50,4 +55,8 @@ export function composeLook(
 
 export function searchGarments(q: string, k = 12): Promise<SearchResult> {
   return brainFetch<SearchResult>(brainUrl("/api/search", { q, k: String(k) }));
+}
+
+export function similarGarments(id: string, k = 6): Promise<SimilarResult> {
+  return brainFetch<SimilarResult>(brainUrl("/api/similar", { id, k: String(k) }));
 }

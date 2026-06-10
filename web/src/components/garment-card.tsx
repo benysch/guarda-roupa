@@ -1,10 +1,12 @@
+import Link from "next/link";
 import { COLOR_HEX, titleCase } from "@/lib/labels";
 import type { Garment } from "@/lib/wardrobe";
 
 export function GarmentCard({ g, index }: { g: Garment; index: number }) {
   return (
-    <article
-      className="group fade-up"
+    <Link
+      href={`/peca/${g.id}`}
+      className="group block fade-up"
       style={{ animationDelay: `${Math.min(index, 14) * 40}ms` }}
     >
       <div className="relative aspect-[3/4] overflow-hidden bg-muted">
@@ -34,6 +36,6 @@ export function GarmentCard({ g, index }: { g: Garment; index: number }) {
           />
         )}
       </div>
-    </article>
+    </Link>
   );
 }
