@@ -29,9 +29,6 @@ from . import looks
 from .schema import Category, Season
 
 
-# Camada visível: roda entre slots consecutivos.
-_VISIBLE = {Category.TOP.value, Category.FULL_BODY.value}
-
 # Estações em que o look pede casaco.
 _COLD = {Season.OUTONO.value, Season.INVERNO.value}
 
