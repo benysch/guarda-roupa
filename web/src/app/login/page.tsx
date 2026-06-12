@@ -25,7 +25,7 @@ export default async function LoginPage(props: {
             O Guarda-Roupa
           </h1>
           <p className="mt-4 text-sm text-muted-foreground">
-            O acervo da Beny. Acesso restrito.
+            O acervo da Muri. Acesso restrito.
           </p>
         </div>
 

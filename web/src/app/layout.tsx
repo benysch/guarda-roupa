@@ -16,7 +16,7 @@ const body = Hanken_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "O Guarda-Roupa · Beny",
+  title: "O Guarda-Roupa · Muri",
   description: "Closet digital — acervo, looks e busca.",
 };
 

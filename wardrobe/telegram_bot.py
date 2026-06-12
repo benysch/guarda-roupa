@@ -1,7 +1,7 @@
 """
 Bot do Telegram (webhook serverless) para ingestão conversacional do guarda-roupa.
 
-Fluxo: a Beny manda a foto -> o bot processa com a IA, salva a peça e puxa uma
+Fluxo: a Muri manda a foto -> o bot processa com a IA, salva a peça e puxa uma
 conversa para confirmar a categoria e capturar marca/modelo (que a foto raramente
 revela). Reaproveita imaging/extractor/storage; só a camada Telegram é nova.
 

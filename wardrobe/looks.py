@@ -17,6 +17,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Optional
 
+from . import style_profile
 from .schema import Category, ColorFamily, Formality, Occasion, Season
 
 # Escala ordenada de formalidade -> permite medir "distância" entre peças.
@@ -29,8 +30,9 @@ _FORMALITY_ORDER = [
 ]
 FORMALITY_RANK = {f.value: i for i, f in enumerate(_FORMALITY_ORDER)}
 
-# Neutros combinam com tudo; o resto é cor "statement" (no máx. uma por look).
-NEUTRALS = {
+# Default genérico (sem perfil de coloração): neutros clássicos combinam com tudo;
+# o resto é cor "statement" (no máx. uma por look).
+_DEFAULT_NEUTRALS = {
     ColorFamily.PRETO.value,
     ColorFamily.BRANCO.value,
     ColorFamily.CINZA.value,
@@ -40,6 +42,15 @@ NEUTRALS = {
     ColorFamily.PRATEADO.value,
     ColorFamily.MULTICOR.value,
 }
+
+# Neutros efetivos: a paleta ativa manda. Para inverno frio, bege/marrom/dourado
+# saem dos neutros (estão na lista 'evita' do perfil) — sem isso, o fallback do
+# motor de regras ancorava looks justamente nas cores que apagam a cliente.
+NEUTRALS = style_profile.engine_neutrals() or _DEFAULT_NEUTRALS
+
+# Cores que a paleta pede para evitar: o motor DEMOVE (prefere alternativas),
+# mas não bloqueia — a peça existe no acervo e pode ser a única do slot.
+AVOID = style_profile.engine_avoid()
 
 # Categorias que não entram num look "de rua" comum.
 _EXCLUDED_DEFAULT = {
@@ -141,7 +152,11 @@ def _color_ok(colors: list[str], candidate: str) -> bool:
 
 
 def _cands(pools: list[list[dict]], category: str, target_rank, season, colors) -> list[dict]:
-    """Candidatos do slot, tentando cada pool em ordem (preferida -> ampla)."""
+    """Candidatos do slot, tentando cada pool em ordem (preferida -> ampla).
+
+    Dentro de cada pool, peças em cores 'evita' da paleta só entram se não
+    houver alternativa — demoção, não bloqueio.
+    """
     for pool in pools:
         hits = [
             g
@@ -152,7 +167,8 @@ def _cands(pools: list[list[dict]], category: str, target_rank, season, colors) 
             and _color_ok(colors, g.get("primary_color"))
         ]
         if hits:
-            return hits
+            favored = [g for g in hits if g.get("primary_color") not in AVOID]
+            return favored or hits
     return []
 
 
@@ -182,8 +198,15 @@ def candidates(
     if occasion == Occasion.CASA.value:
         excluded.discard(Category.SLEEPWEAR.value)
     pool = [g for g in garments if g.get("category") not in excluded]
-    if occasion:
-        pool.sort(key=lambda g: 0 if occasion in (g.get("occasions") or []) else 1)
+    # Ordena por: 1) peça da ocasião primeiro; 2) cor favorável antes de cor
+    # 'evita' — assim o corte de MAX_IMAGES do estilista gasta o orçamento de
+    # fotos nas peças que mais favorecem a cliente.
+    pool.sort(
+        key=lambda g: (
+            (0 if occasion in (g.get("occasions") or []) else 1) if occasion else 0,
+            1 if g.get("primary_color") in AVOID else 0,
+        )
+    )
     return pool[:limit]
 
 
