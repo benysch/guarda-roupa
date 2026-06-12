@@ -65,7 +65,7 @@ skip (idempotência via `content_hash`).
 
 ## Bot do Telegram (ingestão conversacional, Vercel)
 
-Em vez de copiar fotos para uma pasta, a Beny manda a foto no Telegram. O bot
+Em vez de copiar fotos para uma pasta, a Muri manda a foto no Telegram. O bot
 (webhook serverless Python na Vercel) processa com a IA, salva a peça e puxa uma
 conversa para confirmar a categoria e capturar marca/modelo.
 
@@ -78,7 +78,7 @@ conversa para confirmar a categoria e capturar marca/modelo.
 
 Deploy:
 1. Crie o bot no @BotFather → `TELEGRAM_BOT_TOKEN`.
-2. Pegue os IDs numéricos (você + Beny) no @userinfobot → `TELEGRAM_ALLOWED_IDS`.
+2. Pegue os IDs numéricos (Beny + Muri) no @userinfobot → `TELEGRAM_ALLOWED_IDS`.
 3. Defina as envs na Vercel (GEMINI/SUPABASE + TELEGRAM_*).
 4. Deploy na Vercel.
 5. `python scripts/set_webhook.py https://SEU-PROJETO.vercel.app/api/telegram`

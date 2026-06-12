@@ -1,7 +1,7 @@
 """
 Perfil de estilo da cliente + base de conhecimento de coloração pessoal.
 
-Single-user por ora (a Beny). A coloração ativa é um palpite ajustável — se ela
+Single-user por ora (a Muri — usuária final; o Beny constrói e alimenta os dados). A coloração ativa é um palpite ajustável — se ela
 fizer a análise formal, basta trocar `ACTIVE_PALETTE`. O estilista (stylist.py)
 lê `prompt_fragment()` para favorecer as cores que iluminam e evitar as que apagam.
 """
@@ -45,16 +45,59 @@ PALETTES: dict[str, dict] = {
         ],
         "metais": "prata / branco (evitar dourado)",
         "extra": "alto contraste valoriza (ex.: preto + branco); cores claras e saturadas",
+        # Teoria de COMBINAÇÃO do inverno frio (não só quais cores, mas como
+        # juntá-las): a regra mestra é repetir no look o alto contraste natural
+        # da aparência. Fonte: análise sazonal de 12 estações (true/cool winter).
+        "combinacao": [
+            "regra mestra: todo look deve ter ALTO CONTRASTE de claro/escuro — "
+            "uma peça bem escura com uma bem clara ou vívida; looks inteiros em "
+            "tons médios apagam, mesmo usando só cores da paleta",
+            "preto + branco puro é a dupla assinatura desta coloração",
+            "pastéis gelados (rosa gelo, azul gelado) são ACENTO junto a um "
+            "neutro escuro (preto, marinho, chumbo) — nunca o look inteiro",
+            "tom joia como statement, ancorado por neutro escuro: ruby + preto, "
+            "esmeralda + chumbo, fúcsia + marinho, cobalto + marinho",
+            "neutro claro + acento vibrante também funciona: cinza claro + pink",
+            "monocromático só se for escuro e nítido (all-black, marinho total); "
+            "evitar tonal de tons médios/suaves",
+            "nunca misturar com terrosos/quentes; tons empoeirados (mesmo frios, "
+            "ex. lavanda dusty) apagam por falta de intensidade",
+        ],
+        # Visão do MOTOR DE REGRAS (looks.py) sobre a paleta, em valores de
+        # ColorFamily. Neutros são paleta-dependentes: para inverno frio,
+        # bege/marrom/dourado NÃO são neutros (estão na lista 'evita').
+        "neutros_engine": ["preto", "branco", "cinza", "prateado", "multicor"],
+        "evitar_engine": ["bege", "marrom", "dourado", "laranja", "amarelo"],
     },
 }
+
+
+def engine_neutrals(palette: str = ACTIVE_PALETTE) -> set[str] | None:
+    """Famílias de cor que o motor de regras trata como neutras para esta paleta.
+
+    Devolve None se a paleta não definir — o motor usa então o default genérico.
+    """
+    vals = PALETTES.get(palette, {}).get("neutros_engine")
+    return set(vals) if vals else None
+
+
+def engine_avoid(palette: str = ACTIVE_PALETTE) -> set[str]:
+    """Famílias de cor que apagam a cliente: o motor demove (não bloqueia)."""
+    return set(PALETTES.get(palette, {}).get("evitar_engine") or [])
 
 
 def prompt_fragment(palette: str = ACTIVE_PALETTE) -> str:
     """Trecho de prompt descrevendo a coloração da cliente para o estilista IA."""
     p = PALETTES[palette]
-    return (
+    base = (
         f"Coloração pessoal da cliente: {p['nome']} — subtom {p['subtom']}.\n"
         f"Cores que a FAVORECEM: {', '.join(p['favorece'])}.\n"
         f"Cores a EVITAR (apagam/amarelam a pele): {', '.join(p['evita'])}.\n"
         f"Metais: {p['metais']}. {p['extra']}."
     )
+    combos = p.get("combinacao")
+    if combos:
+        base += "\nComo COMBINAR as cores no look:\n" + "\n".join(
+            f"- {c}" for c in combos
+        )
+    return base
