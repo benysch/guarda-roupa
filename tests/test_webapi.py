@@ -71,6 +71,49 @@ def test_compose_look_ignora_ids_invalidos_do_estilista(monkeypatch):
     assert "a" in ids
 
 
+def test_pack_capsule_monta_mala_e_looks_por_dia(monkeypatch):
+    import json
+
+    acervo = [
+        _g("t1", "top", primary_color="branco", formality="trabalho"),
+        _g("t2", "top", primary_color="cinza", formality="trabalho"),
+        _g("b1", "bottom", primary_color="preto", formality="trabalho"),
+        _g("s1", "footwear", primary_color="preto", formality="trabalho"),
+    ]
+    monkeypatch.setattr(storage, "fetch_garments", lambda *a, **k: acervo)
+
+    trip = json.dumps(
+        [
+            {"season": "", "occasions": ["trabalho", "trabalho"]},
+            {"season": "", "occasions": ["trabalho"]},
+        ]
+    )
+    out = webapi.pack_capsule(trip, include_bag=False)
+
+    # dois dias, com 2 e 1 looks respectivamente
+    assert [len(d["looks"]) for d in out["days"]] == [2, 1]
+    # a mala é mínima: 1 bottom e 1 calçado reusados, sem faltas
+    assert {p["id"] for p in out["suitcase"]["bottom"]} == {"b1"}
+    assert {p["id"] for p in out["suitcase"]["footwear"]} == {"s1"}
+    assert out["uncovered"] == []
+    # cada look traz o shape de peça esperado pelo site
+    primeiro = out["days"][0]["looks"][0]
+    assert primeiro["occasion"] == "trabalho"
+    assert set(primeiro["pieces"][0]) == {
+        "id", "category", "subcategory", "primary_color", "brand", "description"
+    }
+
+
+def test_pack_capsule_reporta_lacuna(monkeypatch):
+    import json
+
+    monkeypatch.setattr(
+        storage, "fetch_garments", lambda *a, **k: [_g("t1", "top"), _g("b1", "bottom")]
+    )
+    out = webapi.pack_capsule(json.dumps([{"occasions": ["dia"]}]))
+    assert out["uncovered"] and out["uncovered"][0]["missing"] == ["footwear"]
+
+
 def test_search_shape(monkeypatch):
     monkeypatch.setattr(webapi.embeddings, "embed", lambda *a, **k: [0.1] * 768)
     monkeypatch.setattr(

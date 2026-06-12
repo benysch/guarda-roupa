@@ -7,7 +7,9 @@ e a checagem do segredo, e chama estas funções. Reaproveita stylist/looks/
 embeddings/storage (mesma fonte de verdade do bot).
 """
 
-from . import embeddings, looks, storage, stylist
+import json
+
+from . import capsule, embeddings, looks, storage, stylist
 
 
 def _piece(g: dict) -> dict:
@@ -59,6 +61,62 @@ def search(query: str, k: int = 8) -> dict:
     return {
         "query": query,
         "results": [{**_piece(m), "similarity": m.get("similarity")} for m in results],
+    }
+
+
+def pack_capsule(trip_raw: str = "", include_bag: bool = True) -> dict:
+    """Monta a mala mínima da viagem (engine capsule) a partir do plano dia-a-dia.
+
+    `trip_raw` é o JSON dos dias: ``[{"season": "inverno", "occasions":
+    ["trabalho", "festa"]}, ...]``. Cada ocasião de um dia vira um look (TripSlot)
+    com o clima daquele dia. Devolve a mala agrupada por categoria, os looks de
+    cada dia e os slots não cobertos (lacunas).
+    """
+    days_in = json.loads(trip_raw) if trip_raw else []
+
+    slots: list[capsule.TripSlot] = []
+    spans: list[tuple[int, int, str | None]] = []  # (início, fim, estação) por dia
+    for di, day in enumerate(days_in):
+        season = looks.parse_season(day.get("season") or "")
+        start = len(slots)
+        for occ_raw in day.get("occasions") or []:
+            occ = looks.parse_occasion(occ_raw or "")
+            label = f"Dia {di + 1}"
+            if occ:
+                label += f" — {occ.replace('_', ' ')}"
+            slots.append(capsule.TripSlot(label=label, occasion=occ, season=season))
+        spans.append((start, len(slots), season))
+
+    garments = storage.fetch_garments()
+    cap = capsule.pack(garments, slots, include_bag=include_bag)
+
+    days_out = [
+        {
+            "label": f"Dia {di + 1}",
+            "season": season,
+            "looks": [
+                {
+                    "label": sl.slot.label,
+                    "occasion": sl.slot.occasion,
+                    "missing": sl.missing,
+                    "pieces": [_piece(p) for p in sl.pieces],
+                }
+                for sl in cap.looks[start:end]
+            ],
+        }
+        for di, (start, end, season) in enumerate(spans)
+    ]
+
+    return {
+        "include_bag": include_bag,
+        "count": len(cap.pieces),
+        "suitcase": {
+            cat: [_piece(p) for p in items] for cat, items in cap.by_category().items()
+        },
+        "days": days_out,
+        "uncovered": [
+            {"label": sl.slot.label, "missing": sl.missing} for sl in cap.uncovered
+        ],
     }
 
 

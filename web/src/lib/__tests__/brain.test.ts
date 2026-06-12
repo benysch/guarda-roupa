@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { composeLook } = await import("@/lib/brain");
+const { composeLook, packCapsule } = await import("@/lib/brain");
 
 beforeEach(() => {
   process.env.BRAIN_URL = "https://brain.example.com";
@@ -45,5 +45,39 @@ describe("composeLook", () => {
       vi.fn(async () => ({ ok: false, status: 500, json: async () => ({}) })),
     );
     await expect(composeLook("festa")).rejects.toThrow();
+  });
+});
+
+describe("packCapsule", () => {
+  it("envia a viagem como JSON em /api/capsule com o segredo", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        include_bag: false,
+        count: 0,
+        suitcase: {},
+        days: [],
+        uncovered: [],
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await packCapsule(
+      [{ season: "inverno", occasions: ["trabalho", "festa"] }],
+      false,
+    );
+
+    const [calledUrl, calledOpts] = fetchMock.mock.calls[0] as [
+      URL,
+      { headers: Record<string, string> },
+    ];
+    const u = new URL(calledUrl.toString());
+    expect(u.pathname).toBe("/api/capsule");
+    expect(JSON.parse(u.searchParams.get("trip")!)).toEqual([
+      { season: "inverno", occasions: ["trabalho", "festa"] },
+    ]);
+    expect(u.searchParams.get("bag")).toBe("0");
+    expect(calledOpts.headers["X-Brain-Secret"]).toBe("sekret");
   });
 });
