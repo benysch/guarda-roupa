@@ -27,6 +27,30 @@ export type SimilarResult = {
   results: (LookPiece & { similarity: number })[];
 };
 
+/** Um dia da viagem: o clima e as ocasiões (cada ocasião = um look). */
+export type TripDay = { season: string; occasions: string[] };
+
+export type CapsuleLook = {
+  label: string;
+  occasion: string | null;
+  missing: string[];
+  pieces: LookPiece[];
+};
+
+export type CapsuleDay = {
+  label: string;
+  season: string | null;
+  looks: CapsuleLook[];
+};
+
+export type CapsuleResult = {
+  include_bag: boolean;
+  count: number;
+  suitcase: Record<string, LookPiece[]>;
+  days: CapsuleDay[];
+  uncovered: { label: string; missing: string[] }[];
+};
+
 function brainUrl(path: string, params: Record<string, string | undefined>): URL {
   const base = process.env.BRAIN_URL;
   if (!base) throw new Error("BRAIN_URL ausente no ambiente.");
@@ -51,6 +75,18 @@ export function composeLook(
   season?: string,
 ): Promise<LookResult> {
   return brainFetch<LookResult>(brainUrl("/api/look", { occasion, season }));
+}
+
+export function packCapsule(
+  trip: TripDay[],
+  includeBag = true,
+): Promise<CapsuleResult> {
+  return brainFetch<CapsuleResult>(
+    brainUrl("/api/capsule", {
+      trip: JSON.stringify(trip),
+      bag: includeBag ? "1" : "0",
+    }),
+  );
 }
 
 export function searchGarments(q: string, k = 12): Promise<SearchResult> {

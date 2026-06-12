@@ -32,7 +32,7 @@ class handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/look-image":
             self._look_image(parse_qs(parsed.query))
             return
-        if parsed.path in ("/api/look", "/api/search", "/api/similar"):
+        if parsed.path in ("/api/look", "/api/search", "/api/similar", "/api/capsule"):
             self._brain(parsed.path, parse_qs(parsed.query))
             return
         # healthcheck simples
@@ -94,6 +94,11 @@ class handler(BaseHTTPRequestHandler):
             if path == "/api/look":
                 out = webapi.compose_look(
                     qs.get("occasion", [""])[0], qs.get("season", [""])[0]
+                )
+            elif path == "/api/capsule":
+                out = webapi.pack_capsule(
+                    qs.get("trip", [""])[0],
+                    qs.get("bag", ["1"])[0] != "0",
                 )
             elif path == "/api/similar":
                 out = webapi.similar(qs.get("id", [""])[0], k)
