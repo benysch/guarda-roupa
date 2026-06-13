@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { COLOR_HEX, titleCase } from "@/lib/labels";
-import type { Garment } from "@/lib/wardrobe";
+import { imageSrc, type Garment } from "@/lib/wardrobe";
 
 export function GarmentCard({ g, index }: { g: Garment; index: number }) {
   return (
@@ -12,7 +12,7 @@ export function GarmentCard({ g, index }: { g: Garment; index: number }) {
       <div className="relative aspect-[3/4] overflow-hidden bg-muted">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={`/img/${g.id}`}
+          src={imageSrc(g)}
           alt={g.description ?? g.category}
           loading="lazy"
           className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"

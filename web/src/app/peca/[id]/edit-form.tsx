@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { CATEGORY_LABELS, CATEGORY_ORDER, COLOR_HEX, titleCase } from "@/lib/labels";
 import { COLORS, MATERIALS, PATTERNS } from "@/lib/vocab";
 import type { Garment } from "@/lib/wardrobe";
-import { removeGarment, saveGarment } from "./actions";
+import { classifyAndSave, removeGarment, saveGarment } from "./actions";
 
 const CATEGORIES: [string, string][] = CATEGORY_ORDER.map((c) => [
   c,
@@ -15,9 +15,15 @@ const CATEGORIES: [string, string][] = CATEGORY_ORDER.map((c) => [
 ]);
 const COLOR_OPTS: [string, string][] = COLORS.map((c) => [c, titleCase(c)]);
 
-export function EditForm({ g }: { g: Garment }) {
+export function EditForm({
+  g,
+  needsReview = false,
+}: {
+  g: Garment;
+  needsReview?: boolean;
+}) {
   const router = useRouter();
-  const [category, setCategory] = useState(g.category);
+  const [category, setCategory] = useState(g.category ?? "");
   const [color, setColor] = useState(g.primary_color ?? "");
   const [pattern, setPattern] = useState(g.pattern ?? "");
   const [material, setMaterial] = useState(g.material ?? "");
@@ -27,16 +33,33 @@ export function EditForm({ g }: { g: Garment }) {
   const [deleting, startDel] = useTransition();
 
   function save() {
+    const fields = {
+      category,
+      primary_color: color,
+      pattern,
+      material,
+      brand,
+      model_name: model,
+    };
+    if (needsReview) {
+      if (!category) {
+        toast.error("Escolha ao menos a categoria para classificar");
+        return;
+      }
+      startSave(async () => {
+        try {
+          await classifyAndSave(g.id, fields);
+          toast.success("Peça classificada");
+          router.push("/classificar");
+        } catch {
+          toast.error("Não consegui salvar");
+        }
+      });
+      return;
+    }
     startSave(async () => {
       try {
-        await saveGarment(g.id, {
-          category,
-          primary_color: color,
-          pattern,
-          material,
-          brand,
-          model_name: model,
-        });
+        await saveGarment(g.id, fields);
         toast.success("Peça atualizada");
         router.refresh();
       } catch {
@@ -60,10 +83,16 @@ export function EditForm({ g }: { g: Garment }) {
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-3xl tracking-tight">
-          {titleCase(g.subcategory ?? g.category)}
+          {titleCase(g.subcategory ?? g.category) || "Peça nova"}
         </h1>
-        {g.description && (
-          <p className="mt-2 text-sm text-muted-foreground">{g.description}</p>
+        {needsReview ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Foto subida pelo bot. Preencha os campos para classificar e enviar ao acervo.
+          </p>
+        ) : (
+          g.description && (
+            <p className="mt-2 text-sm text-muted-foreground">{g.description}</p>
+          )
         )}
       </div>
 
@@ -119,7 +148,11 @@ export function EditForm({ g }: { g: Garment }) {
           disabled={saving}
           className="tracking-label rounded-md bg-primary px-6 py-2.5 text-[11px] uppercase text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
-          {saving ? "Salvando…" : "Salvar"}
+          {saving
+            ? "Salvando…"
+            : needsReview
+              ? "Classificar"
+              : "Salvar"}
         </button>
         <button
           type="button"

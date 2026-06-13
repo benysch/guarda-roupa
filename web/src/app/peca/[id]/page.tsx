@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { similarGarments, type SimilarResult } from "@/lib/brain";
 import { titleCase } from "@/lib/labels";
-import { getGarment } from "@/lib/wardrobe";
+import { getGarment, imageSrc } from "@/lib/wardrobe";
+import { CutoutReview } from "./cutout-review";
 import { EditForm } from "./edit-form";
 
 export const dynamic = "force-dynamic";
@@ -15,11 +16,15 @@ export default async function GarmentPage(props: {
   const g = await getGarment(id);
   if (!g) notFound();
 
+  const needsReview = g.status === "needs_review";
+
   let similar: SimilarResult | null = null;
-  try {
-    similar = await similarGarments(id, 6);
-  } catch {
-    similar = null;
+  if (!needsReview) {
+    try {
+      similar = await similarGarments(id, 6);
+    } catch {
+      similar = null;
+    }
   }
 
   return (
@@ -28,10 +33,10 @@ export default async function GarmentPage(props: {
       <main className="mx-auto max-w-5xl px-6 pb-24">
         <div className="py-6">
           <Link
-            href="/"
+            href={needsReview ? "/classificar" : "/"}
             className="tracking-label text-[11px] uppercase text-muted-foreground transition-colors hover:text-foreground"
           >
-            ← Acervo
+            ← {needsReview ? "A classificar" : "Acervo"}
           </Link>
         </div>
 
@@ -39,13 +44,17 @@ export default async function GarmentPage(props: {
           <div className="relative aspect-[3/4] overflow-hidden bg-muted">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={`/img/${g.id}`}
+              src={imageSrc(g)}
               alt={g.description ?? g.category}
               className="h-full w-full object-cover"
             />
           </div>
-          <EditForm g={g} />
+          <EditForm g={g} needsReview={needsReview} />
         </div>
+
+        {!needsReview && g.cutout_status === "pending" && (
+          <CutoutReview id={g.id} />
+        )}
 
         {similar && similar.results.length > 0 && (
           <section className="mt-16 border-t border-border pt-10">

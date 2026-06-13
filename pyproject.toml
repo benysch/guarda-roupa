@@ -15,6 +15,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+# Recorte de fundo (scripts/backfill_cutouts.py). LOCAL-ONLY: pesado (onnxruntime/scipy/
+# scikit-image) e NUNCA deve entrar no bundle da Vercel — por isso fica fora de
+# `dependencies`. Instalar só local: `uv pip install -e '.[cutout]'`. Rodar o backfill
+# com NUMBA_DISABLE_JIT=1 (ver wardrobe/cutout.py).
+cutout = ["rembg[cpu]>=2.0"]
 
 # Entrypoint único da função Python na Vercel: TODO request (qualquer path) cai
 # em api.telegram:handler, que despacha por path (webhook POST /api/telegram,

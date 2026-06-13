@@ -123,6 +123,17 @@ class Telegram:
             payload["text"] = text
         self._call("answerCallbackQuery", payload)
 
+    def react(self, chat_id: int, message_id: int, emoji: str = "👍") -> None:
+        """Reage a uma mensagem (best-effort) — confirma sem poluir o chat com texto."""
+        self._call(
+            "setMessageReaction",
+            {
+                "chat_id": chat_id,
+                "message_id": message_id,
+                "reaction": [{"type": "emoji", "emoji": emoji}],
+            },
+        )
+
     def download_photo(self, file_id: str) -> bytes:
         info = self._call("getFile", {"file_id": file_id})
         path = info["result"]["file_path"]
@@ -209,10 +220,17 @@ def handle_update(update: dict) -> None:
 
 
 def _handle_photo(tg: Telegram, chat_id: int, msg: dict) -> None:
-    tg.send_message(chat_id, "🔍 Analisando a peça...")
-
     # maior resolução disponível é o último item de photo[]
     file_id = msg["photo"][-1]["file_id"]
+
+    # Modo rápido: só enfileira e confirma com uma reação (o worker cataloga
+    # em segundo plano). Aguenta rajada de fotos sem travar o webhook.
+    if storage.get_fast_mode(chat_id):
+        storage.enqueue_ingest(chat_id, file_id)
+        tg.react(chat_id, msg["message_id"])
+        return
+
+    tg.send_message(chat_id, "🔍 Analisando a peça...")
     raw = tg.download_photo(file_id)
 
     try:
@@ -305,6 +323,11 @@ def _handle_text(tg: Telegram, chat_id: int, text: str) -> None:
             chat_id,
             "📸 Me mande a *foto* de uma peça que eu cataloga no guarda-roupa "
             "e pergunto a marca e o modelo.\n\n"
+            "💡 _Dica: fotografe a peça sobre uma superfície de cor *contrastante* "
+            "(evite roupa branca sobre lençol branco) — fica muito melhor no acervo._\n\n"
+            "⚡ `/rapido` — liga o *modo rápido*: você só manda as fotos (mesmo várias "
+            "de uma vez), eu catalogo em segundo plano sem perguntar nada, e você "
+            "ajusta o que quiser depois no site. Mande `/rapido` de novo para desligar.\n\n"
             "✨ Ou peça um look pronto:\n"
             "• `/look` — um look qualquer\n"
             "• `/look festa` — por ocasião (festa, trabalho, encontro, praia…)\n"
@@ -312,6 +335,26 @@ def _handle_text(tg: Telegram, chat_id: int, text: str) -> None:
             "🔎 Busca por descrição:\n"
             "• `/buscar blusa leve pra viagem`",
         )
+        return
+
+    if text.startswith("/rapido") or text.startswith("/rápido"):
+        fast = not storage.get_fast_mode(chat_id)
+        storage.set_fast_mode(chat_id, fast)
+        if fast:
+            tg.send_message(
+                chat_id,
+                "⚡ *Modo rápido ligado!* Manda as fotos das peças (pode mandar várias "
+                "de uma vez) que eu vou catalogando em segundo plano — confirmo cada "
+                "uma com um 👍 e aviso quando o lote terminar.\n\n"
+                "_Qualquer ajuste (categoria, cor, marca…) você faz direto no site._\n\n"
+                "Para voltar ao modo com confirmação, mande `/rapido` de novo.",
+            )
+        else:
+            tg.send_message(
+                chat_id,
+                "💬 *Modo rápido desligado.* Volto a analisar na hora e confirmar "
+                "categoria + marca/modelo a cada foto.",
+            )
         return
 
     if text.startswith("/look"):
@@ -324,7 +367,11 @@ def _handle_text(tg: Telegram, chat_id: int, text: str) -> None:
 
     session = _get_session(chat_id)
     if not session:
-        tg.send_message(chat_id, "📸 Manda uma foto de uma peça para começar!")
+        tg.send_message(
+            chat_id,
+            "📸 Manda uma foto de uma peça para começar!\n"
+            "💡 _De preferência sobre um fundo de cor contrastante._",
+        )
         return
 
     garment_id = session["garment_id"]

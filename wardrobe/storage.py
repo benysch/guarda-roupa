@@ -7,6 +7,7 @@ Espelha a estratégia híbrida do schema: colunas promovidas (filtráveis) +
 
 import logging
 import uuid
+from datetime import datetime, timezone
 from typing import Optional
 
 from tenacity import retry, stop_after_attempt, wait_exponential_jitter
@@ -17,6 +18,8 @@ from .schema import GarmentMetadata
 logger = logging.getLogger(__name__)
 
 TABLE = "garments"
+QUEUE = "ingest_queue"
+PREFS = "telegram_prefs"
 
 
 def find_existing_id(content_hash: str) -> Optional[str]:
@@ -44,6 +47,20 @@ def upload_image(garment_id: str, jpeg_bytes: bytes) -> str:
         path,
         jpeg_bytes,
         {"content-type": "image/jpeg", "upsert": "true"},
+    )
+    return path
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential_jitter(initial=1, max=15), reraise=True)
+def upload_cutout(garment_id: str, png_bytes: bytes) -> str:
+    """Sobe a imagem recortada (fundo transparente) em '{id}_cutout.png' e devolve o path."""
+    settings = get_settings()
+    client = get_supabase_client()
+    path = f"{garment_id}_cutout.png"
+    client.storage.from_(settings.supabase_bucket).upload(
+        path,
+        png_bytes,
+        {"content-type": "image/png", "upsert": "true"},
     )
     return path
 
@@ -91,6 +108,27 @@ def insert_garment(
     client = get_supabase_client()
     row = _row_from_metadata(garment_id, image_path, content_hash, meta, status)
     client.table(TABLE).insert(row).execute()
+    return garment_id
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential_jitter(initial=1, max=15), reraise=True)
+def insert_bare_garment(
+    image_path: str,
+    content_hash: str,
+    garment_id: str,
+    status: str = "needs_review",
+) -> str:
+    """Insere uma peça CRUA (sem IA): só a foto. A Muri classifica na mão no site."""
+    client = get_supabase_client()
+    client.table(TABLE).insert(
+        {
+            "id": garment_id,
+            "image_path": image_path,
+            "content_hash": content_hash,
+            "attributes": {},
+            "status": status,
+        }
+    ).execute()
     return garment_id
 
 
@@ -175,3 +213,92 @@ def signed_url(image_path: str, expires_in: int = 600) -> Optional[str]:
     if isinstance(resp, dict):
         return resp.get("signedURL") or resp.get("signedUrl")
     return None
+
+
+# --------------------------------------------------------------------------- #
+# Modo rápido / fila de ingestão em segundo plano
+# --------------------------------------------------------------------------- #
+def get_fast_mode(chat_id: int) -> bool:
+    """O chat está em modo rápido (só mandar fotos, processa em background)?"""
+    client = get_supabase_client()
+    resp = (
+        client.table(PREFS).select("fast_mode").eq("chat_id", chat_id).limit(1).execute()
+    )
+    return bool(resp.data[0]["fast_mode"]) if resp.data else False
+
+
+def set_fast_mode(chat_id: int, fast: bool) -> None:
+    """Liga/desliga o modo rápido de um chat."""
+    client = get_supabase_client()
+    client.table(PREFS).upsert(
+        {"chat_id": chat_id, "fast_mode": fast, "updated_at": _now_iso()}
+    ).execute()
+
+
+def enqueue_ingest(chat_id: int, file_id: str) -> None:
+    """Enfileira uma foto para catalogação em segundo plano."""
+    client = get_supabase_client()
+    client.table(QUEUE).insert({"chat_id": chat_id, "file_id": file_id}).execute()
+
+
+def claim_ingest_jobs(limit: int) -> list[dict]:
+    """Reivindica até `limit` jobs pendentes (atômico; reaproveita travados)."""
+    client = get_supabase_client()
+    resp = client.rpc("claim_ingest_jobs", {"n": limit}).execute()
+    return resp.data or []
+
+
+def finish_ingest(job_id: str, status: str, error: Optional[str] = None) -> None:
+    """Marca um job como 'done' ou 'failed'."""
+    client = get_supabase_client()
+    client.table(QUEUE).update(
+        {"status": status, "error": error, "processed_at": _now_iso()}
+    ).eq("id", job_id).execute()
+
+
+def requeue_ingest(job_id: str, note: Optional[str] = None) -> None:
+    """Devolve um job pra fila (erro transitório): volta a 'pending' p/ re-tentar."""
+    client = get_supabase_client()
+    client.table(QUEUE).update(
+        {"status": "pending", "started_at": None, "processed_at": None, "error": note}
+    ).eq("id", job_id).execute()
+
+
+def chat_has_open_jobs(chat_id: int) -> bool:
+    """Ainda há fotos pendentes/em processamento na fila deste chat?"""
+    client = get_supabase_client()
+    resp = (
+        client.table(QUEUE)
+        .select("id")
+        .eq("chat_id", chat_id)
+        .in_("status", ["pending", "processing"])
+        .limit(1)
+        .execute()
+    )
+    return bool(resp.data)
+
+
+def unnotified_results(chat_id: int) -> list[dict]:
+    """Resultados (done/failed) deste chat que ainda não foram avisados."""
+    client = get_supabase_client()
+    resp = (
+        client.table(QUEUE)
+        .select("id,status")
+        .eq("chat_id", chat_id)
+        .eq("notified", False)
+        .in_("status", ["done", "failed"])
+        .execute()
+    )
+    return resp.data or []
+
+
+def mark_notified(job_ids: list[str]) -> None:
+    """Marca jobs como já avisados (evita avisar duas vezes)."""
+    if not job_ids:
+        return
+    client = get_supabase_client()
+    client.table(QUEUE).update({"notified": True}).in_("id", job_ids).execute()
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()

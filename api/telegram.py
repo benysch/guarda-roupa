@@ -35,6 +35,9 @@ class handler(BaseHTTPRequestHandler):
         if parsed.path in ("/api/look", "/api/search", "/api/similar", "/api/capsule"):
             self._brain(parsed.path, parse_qs(parsed.query))
             return
+        if parsed.path == "/api/process-queue":
+            self._process_queue()
+            return
         # healthcheck simples
         self._ok("guarda-roupa bot online")
 
@@ -77,6 +80,26 @@ class handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "image/png")
         self.end_headers()
         self.wfile.write(png)
+
+    def _process_queue(self) -> None:
+        """Drena um lote da fila de ingestão (chamado pelo cron do Supabase)."""
+        # Segredo dedicado ao trigger (cai no BRAIN_SECRET se QUEUE_SECRET não existir).
+        want = os.getenv("QUEUE_SECRET") or os.getenv("BRAIN_SECRET", "")
+        if want and self.headers.get("X-Queue-Secret", "") != want:
+            self.send_response(401)
+            self.end_headers()
+            return
+        from wardrobe import ingest_worker
+
+        try:
+            out = ingest_worker.process_pending()
+        except Exception:
+            import logging
+
+            logging.getLogger("api.telegram").exception("process-queue falhou")
+            self._json(500, {"error": "internal"})
+            return
+        self._json(200, out)
 
     def _brain(self, path: str, qs: dict) -> None:
         """Endpoints JSON do site (protegidos por segredo compartilhado)."""

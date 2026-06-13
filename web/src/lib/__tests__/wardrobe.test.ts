@@ -49,9 +49,14 @@ vi.mock("@/lib/supabase", () => ({
   BUCKET: "wardrobe",
 }));
 
-const { updateGarment, deleteGarment, getGarment } = await import(
-  "@/lib/wardrobe"
-);
+const {
+  updateGarment,
+  classifyGarment,
+  deleteGarment,
+  getGarment,
+  setCutoutStatus,
+  imageSrc,
+} = await import("@/lib/wardrobe");
 
 beforeEach(() => {
   for (const k of Object.keys(h.rec)) delete h.rec[k];
@@ -75,11 +80,53 @@ describe("updateGarment", () => {
   });
 });
 
+describe("classifyGarment", () => {
+  it("grava campos editáveis e promove a peça a processed", async () => {
+    await classifyGarment("g1", {
+      category: "top",
+      primary_color: "preto",
+      naoExiste: "ignora",
+    } as Record<string, string | null>);
+
+    expect(h.rec.update).toEqual({
+      category: "top",
+      primary_color: "preto",
+      status: "processed",
+    });
+    expect(h.rec.updEq).toEqual(["id", "g1"]);
+  });
+});
+
 describe("deleteGarment", () => {
-  it("remove o objeto do Storage e apaga a linha", async () => {
+  it("remove original + recorte do Storage e apaga a linha", async () => {
     await deleteGarment("g1");
-    expect(h.rec.removed).toEqual(["g1.jpg"]);
+    expect(h.rec.removed).toEqual(["g1.jpg", "g1_cutout.png"]);
     expect(h.rec.delEq).toEqual(["id", "g1"]);
+  });
+});
+
+describe("setCutoutStatus", () => {
+  it("aprovar marca approved sem apagar arquivo", async () => {
+    await setCutoutStatus("g1", "approved");
+    expect(h.rec.update).toEqual({ cutout_status: "approved" });
+    expect(h.rec.updEq).toEqual(["id", "g1"]);
+    expect(h.rec.removed).toBeUndefined();
+  });
+
+  it("rejeitar apaga o recorte e marca rejected", async () => {
+    await setCutoutStatus("g1", "rejected");
+    expect(h.rec.removed).toEqual(["g1_cutout.png"]);
+    expect(h.rec.update).toEqual({ cutout_status: "rejected" });
+  });
+});
+
+describe("imageSrc", () => {
+  it("usa o recorte só quando aprovado", () => {
+    expect(imageSrc({ id: "g1", cutout_status: "approved" })).toBe(
+      "/img/g1?v=cutout",
+    );
+    expect(imageSrc({ id: "g1", cutout_status: "pending" })).toBe("/img/g1");
+    expect(imageSrc({ id: "g1", cutout_status: null })).toBe("/img/g1");
   });
 });
 
