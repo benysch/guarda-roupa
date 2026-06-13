@@ -17,6 +17,9 @@ export function GarmentCard({ g, index }: { g: Garment; index: number }) {
           loading="lazy"
           className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
         />
+        <span className="tracking-label absolute right-2 top-2 rounded-full bg-background/80 px-2.5 py-1 text-[10px] uppercase text-foreground opacity-80 backdrop-blur-sm transition-opacity group-hover:opacity-100">
+          ✎ Editar
+        </span>
       </div>
       <div className="mt-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
