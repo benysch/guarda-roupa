@@ -119,3 +119,67 @@ def test_cands_demove_cor_evita():
     assert hits == [branco]  # bege demovida quando há alternativa
     hits = looks._cands([[bege]], "top", None, None, [])
     assert hits == [bege]  # mas não bloqueada quando é a única opção
+
+
+# --------------------------------------------------------------------------- #
+# Temperatura
+# --------------------------------------------------------------------------- #
+def test_parse_temperature():
+    assert looks.parse_temperature("um look pra hoje, tá frio") == "frio"
+    assert looks.parse_temperature("calor demais") == "quente"
+    assert looks.parse_temperature("festa") is None
+
+
+def test_temp_from_celsius():
+    assert looks.temp_from_celsius(8) == "frio"
+    assert looks.temp_from_celsius(14.9) == "frio"
+    assert looks.temp_from_celsius(20) == "ameno"
+    assert looks.temp_from_celsius(28) == "quente"
+
+
+def test_wants_outerwear():
+    rng = random.Random(0)
+    assert looks.wants_outerwear("frio", None, rng) is True
+    assert looks.wants_outerwear("quente", "inverno", rng) is False  # calor manda
+
+
+def test_compose_frio_inclui_casaco():
+    wardrobe = [
+        g(id="t", category="top"),
+        g(id="b", category="bottom"),
+        g(id="f", category="footwear"),
+        g(id="c", category="outerwear"),
+    ]
+    look = looks.compose(wardrobe, temperature="frio", rng=random.Random(0))
+    assert "outerwear" in {p["category"] for p in look.pieces}
+    assert look.temperature == "frio"
+
+
+def test_compose_quente_exclui_casaco():
+    wardrobe = [
+        g(id="t", category="top"),
+        g(id="b", category="bottom"),
+        g(id="f", category="footwear"),
+        g(id="c", category="outerwear"),
+    ]
+    # Em qualquer semente, calor não veste casaco.
+    for seed in range(5):
+        look = looks.compose(wardrobe, temperature="quente", rng=random.Random(seed))
+        assert "outerwear" not in {p["category"] for p in look.pieces}
+
+
+def test_cands_prefere_material_quente_no_frio():
+    base = {"category": "top", "primary_color": "preto", "formality": "casual",
+            "seasons": [], "occasions": []}
+    la = {"id": "1", "material": "la", **base}
+    linho = {"id": "2", "material": "linho", **base}
+    assert looks._cands([[linho, la]], "top", None, None, [], "frio") == [la]
+    assert looks._cands([[linho, la]], "top", None, None, [], "quente") == [linho]
+
+
+def test_cold_without_coat():
+    com_casaco = [g(category="top"), g(category="outerwear")]
+    sem_casaco = [g(category="top"), g(category="footwear")]
+    assert looks.cold_without_coat(sem_casaco, "frio") is True
+    assert looks.cold_without_coat(com_casaco, "frio") is False
+    assert looks.cold_without_coat(sem_casaco, "quente") is False  # só alerta no frio

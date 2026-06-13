@@ -55,13 +55,24 @@ def _facets(g: dict) -> str:
     return ", ".join(str(b) for b in bits if b)
 
 
-def _instructions(occasion, season) -> str:
+_TEMP_GUIDANCE = {
+    "frio": "Está FRIO (abaixo de ~15°C): priorize AGASALHO (inclua um casaco/jaqueta "
+    "se houver) e tecidos quentes (lã, tricô, couro); evite peças muito leves.",
+    "ameno": "Temperatura AMENA (~15–24°C): camadas leves; casaco fino é opcional.",
+    "quente": "Está QUENTE (acima de ~24°C): NÃO use casaco nem agasalho; prefira tecidos "
+    "leves e frescos (linho, algodão, viscose) e peças arejadas.",
+}
+
+
+def _instructions(occasion, season, temperature=None) -> str:
     ctx = []
     if occasion:
         ctx.append(f"ocasião: {occasion.replace('_', ' ')}")
     if season:
         ctx.append(f"estação: {season}")
     ctx_s = "; ".join(ctx) or "uso geral do dia a dia"
+    temp_line = _TEMP_GUIDANCE.get(temperature or "", "")
+    temp_block = f"\nClima: {temp_line}\n" if temp_line else ""
 
     return f"""Você é uma consultora de moda experiente. A seguir estão as peças \
 disponíveis no guarda-roupa da cliente — cada uma com a FOTO e os atributos, \
@@ -69,7 +80,7 @@ identificada por um id. Monte UM look coerente e bonito, escolhendo SOMENTE \
 entre estas peças (referencie pelo id exato).
 
 Contexto do look: {ctx_s}.
-
+{temp_block}
 {style_profile.prompt_fragment()}
 
 OLHE AS FOTOS para julgar a cor real e a textura de cada peça (não confie só no \
@@ -79,7 +90,7 @@ cliente; evite as que a apagam.
 Regras:
 - Um item por slot do corpo. O look precisa de (vestido/macacão) OU (top + bottom), \
 mais um calçado. Outerwear, bolsa e no máximo 1 acessório são opcionais.
-- Respeite a ocasião e a estação.
+- Respeite a ocasião, a estação e, sobretudo, o CLIMA (casaco no frio, nada de agasalho no calor).
 - Se faltar algum slot essencial, monte com o que existe — NÃO invente peças nem \
 use ids fora da lista.
 
@@ -117,7 +128,7 @@ def _call_gemini(contents: list, model: str) -> StyledLook:
     return parsed
 
 
-def style_look(candidates: list[dict], occasion=None, season=None) -> StyledLook:
+def style_look(candidates: list[dict], occasion=None, season=None, temperature=None) -> StyledLook:
     """Escolhe um look entre os candidatos (com visão). Lança StylistError em falha."""
     settings = get_settings()
     visual = candidates[:MAX_IMAGES]
@@ -126,7 +137,7 @@ def style_look(candidates: list[dict], occasion=None, season=None) -> StyledLook
     with ThreadPoolExecutor(max_workers=6) as pool:
         images = list(pool.map(lambda g: storage.download_image(g["id"]), visual))
 
-    contents: list = [_instructions(occasion, season)]
+    contents: list = [_instructions(occasion, season, temperature)]
     for g, img in zip(visual, images):
         if img:
             contents.append(f"id={g['id']} — {_facets(g)}:")

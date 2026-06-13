@@ -15,12 +15,25 @@ const MISSING_LABEL: Record<string, string> = {
   full_body: "um vestido/macacão",
 };
 
+const TEMP_LABEL: Record<string, string> = {
+  frio: "❄️ Frio",
+  ameno: "🌤️ Ameno",
+  quente: "☀️ Quente",
+};
+
 export default async function LooksPage(props: {
-  searchParams: Promise<{ occasion?: string; season?: string; r?: string }>;
+  searchParams: Promise<{
+    occasion?: string;
+    season?: string;
+    temp?: string;
+    r?: string;
+  }>;
 }) {
   const sp = await props.searchParams;
-  const requested = Boolean(sp.occasion || sp.season || sp.r);
-  const look = requested ? await composeLook(sp.occasion, sp.season) : null;
+  const requested = Boolean(sp.occasion || sp.season || sp.temp || sp.r);
+  const look = requested
+    ? await composeLook(sp.occasion, sp.season, sp.temp)
+    : null;
 
   return (
     <>
@@ -38,6 +51,7 @@ export default async function LooksPage(props: {
         <LookControls
           occasion={sp.occasion ?? ""}
           season={sp.season ?? ""}
+          temperature={sp.temp ?? ""}
           hasLook={!!look}
         />
 
@@ -79,11 +93,10 @@ function LookView({ look }: { look: LookResult }) {
         <h2 className="font-display text-3xl tracking-tight capitalize">
           {title}
         </h2>
-        {look.season && (
-          <span className="tracking-label text-[11px] uppercase text-muted-foreground">
-            {look.season}
-          </span>
-        )}
+        <span className="tracking-label flex shrink-0 gap-3 text-[11px] uppercase text-muted-foreground">
+          {look.temperature && <span>{TEMP_LABEL[look.temperature] ?? look.temperature}</span>}
+          {look.season && <span>{look.season}</span>}
+        </span>
       </header>
 
       <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
@@ -131,6 +144,13 @@ function LookView({ look }: { look: LookResult }) {
           ⚠️ Faltou{" "}
           {look.missing.map((m) => MISSING_LABEL[m] ?? m).join(", ")} pra
           completar o look. Cadastre essas peças pelo bot.
+        </p>
+      )}
+
+      {look.cold_without_coat && (
+        <p className="mt-4 rounded-md bg-muted px-4 py-3 text-sm text-muted-foreground">
+          🧥 Está frio e não há um casaco elegível no acervo — vale cadastrar um
+          agasalho.
         </p>
       )}
 

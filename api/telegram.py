@@ -116,7 +116,9 @@ class handler(BaseHTTPRequestHandler):
         try:
             if path == "/api/look":
                 out = webapi.compose_look(
-                    qs.get("occasion", [""])[0], qs.get("season", [""])[0]
+                    qs.get("occasion", [""])[0],
+                    qs.get("season", [""])[0],
+                    qs.get("temp", [""])[0],
                 )
             elif path == "/api/similar":
                 out = webapi.similar(qs.get("id", [""])[0], k)

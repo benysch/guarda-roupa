@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from . import style_profile
-from .schema import Category, ColorFamily, Formality, Occasion, Season
+from .schema import Category, ColorFamily, Formality, Material, Occasion, Season
 
 # Escala ordenada de formalidade -> permite medir "distância" entre peças.
 _FORMALITY_ORDER = [
@@ -98,6 +98,94 @@ _SEASON_ALIASES = {
     "primavera": Season.PRIMAVERA.value,
 }
 
+# --------------------------------------------------------------------------- #
+# Temperatura — sinal mais honesto que a estação para decidir AGASALHO.
+# (No Brasil um outono pode ser frio ou quente; aqui o que manda é o clima real.)
+# Frio  -> casaco recomendado + tecidos quentes
+# Ameno -> casaco opcional
+# Quente-> sem casaco + tecidos leves
+# --------------------------------------------------------------------------- #
+TEMP_FRIO = "frio"
+TEMP_AMENO = "ameno"
+TEMP_QUENTE = "quente"
+
+_TEMP_ALIASES = {
+    "frio": TEMP_FRIO,
+    "friozinho": TEMP_FRIO,
+    "gelado": TEMP_FRIO,
+    "cold": TEMP_FRIO,
+    "ameno": TEMP_AMENO,
+    "fresco": TEMP_AMENO,
+    "ameia": TEMP_AMENO,
+    "mild": TEMP_AMENO,
+    "quente": TEMP_QUENTE,
+    "calor": TEMP_QUENTE,
+    "quentinho": TEMP_QUENTE,
+    "hot": TEMP_QUENTE,
+}
+
+# Materiais que aquecem (favorecidos no frio) e os leves/frescos (favorecidos no quente).
+# Demoção, não bloqueio: numa peça única do slot ela entra mesmo "errada".
+WARM_MATERIALS = {
+    Material.LA.value, Material.TRICO.value, Material.CASHMERE.value, Material.MOHAIR.value,
+    Material.TWEED.value, Material.VELUDO.value, Material.COURO.value,
+    Material.COURO_SINTETICO.value, Material.MOLETOM.value, Material.MALHA.value,
+    Material.CROCHE.value,
+}
+LIGHT_MATERIALS = {
+    Material.LINHO.value, Material.ALGODAO.value, Material.SEDA.value, Material.VISCOSE.value,
+    Material.CETIM.value, Material.RENDA.value, Material.LYCRA.value, Material.NYLON.value,
+}
+
+
+def parse_temperature(text: str) -> Optional[str]:
+    for token in text.lower().split():
+        if token in _TEMP_ALIASES:
+            return _TEMP_ALIASES[token]
+    return None
+
+
+def temp_from_celsius(celsius: float) -> str:
+    """Mapeia °C -> faixa. Fonte única do limiar (usada pelo botão 'clima daqui')."""
+    if celsius < 15:
+        return TEMP_FRIO
+    if celsius < 24:
+        return TEMP_AMENO
+    return TEMP_QUENTE
+
+
+def _temp_material_penalty(g: dict, temperature: Optional[str]) -> int:
+    """0 = material adequado/neutro p/ a temperatura; 1 = na contramão (demovido)."""
+    if not temperature:
+        return 0
+    mat = g.get("material")
+    if not mat:
+        return 0  # material desconhecido: não penaliza
+    if temperature == TEMP_FRIO:
+        return 1 if mat in LIGHT_MATERIALS else 0
+    if temperature == TEMP_QUENTE:
+        return 1 if mat in WARM_MATERIALS else 0
+    return 0  # ameno: tudo serve
+
+
+def wants_outerwear(temperature: Optional[str], season: Optional[str], rng: random.Random) -> bool:
+    """Política de casaco: frio pede, quente proíbe, ameno é opcional. Sem
+    temperatura, cai no comportamento antigo (estação fria sugere casaco)."""
+    if temperature == TEMP_QUENTE:
+        return False
+    if temperature == TEMP_FRIO:
+        return True
+    if temperature == TEMP_AMENO:
+        return rng.random() < 0.5
+    return season in (Season.OUTONO.value, Season.INVERNO.value) or rng.random() < 0.25
+
+
+def cold_without_coat(pieces: list[dict], temperature: Optional[str]) -> bool:
+    """Está frio mas o look saiu sem casaco (acervo não tem outerwear elegível)."""
+    if temperature != TEMP_FRIO:
+        return False
+    return not any(p.get("category") == Category.OUTERWEAR.value for p in pieces)
+
 
 @dataclass
 class Look:
@@ -107,6 +195,7 @@ class Look:
     missing: list[str] = field(default_factory=list)  # categorias essenciais ausentes
     occasion: Optional[str] = None
     season: Optional[str] = None
+    temperature: Optional[str] = None
 
     @property
     def complete(self) -> bool:
@@ -151,11 +240,14 @@ def _color_ok(colors: list[str], candidate: str) -> bool:
     return all(c == candidate for c in statements)  # no máx. uma cor statement
 
 
-def _cands(pools: list[list[dict]], category: str, target_rank, season, colors) -> list[dict]:
+def _cands(
+    pools: list[list[dict]], category: str, target_rank, season, colors, temperature=None
+) -> list[dict]:
     """Candidatos do slot, tentando cada pool em ordem (preferida -> ampla).
 
-    Dentro de cada pool, peças em cores 'evita' da paleta só entram se não
-    houver alternativa — demoção, não bloqueio.
+    Dentro de cada pool, peças em cores 'evita' da paleta ou em material errado
+    para a temperatura são DEMOVIDAS (só entram se não houver alternativa) — pega
+    sempre o melhor estrato disponível, mas nunca bloqueia (acervo é pequeno).
     """
     for pool in pools:
         hits = [
@@ -167,8 +259,12 @@ def _cands(pools: list[list[dict]], category: str, target_rank, season, colors) 
             and _color_ok(colors, g.get("primary_color"))
         ]
         if hits:
-            favored = [g for g in hits if g.get("primary_color") not in AVOID]
-            return favored or hits
+            def _penalty(g: dict) -> int:
+                color_pen = 1 if g.get("primary_color") in AVOID else 0
+                return color_pen + _temp_material_penalty(g, temperature)
+
+            best = min(_penalty(g) for g in hits)
+            return [g for g in hits if _penalty(g) == best]
     return []
 
 
@@ -187,7 +283,10 @@ def missing_slots(pieces: list[dict]) -> list[str]:
 
 
 def candidates(
-    garments: list[dict], occasion: Optional[str] = None, limit: int = 60
+    garments: list[dict],
+    occasion: Optional[str] = None,
+    limit: int = 60,
+    temperature: Optional[str] = None,
 ) -> list[dict]:
     """Acervo elegível para o estilista IA: remove categorias incompatíveis com um
     look de rua e prioriza as peças da ocasião. Coerência de cor/taste fica com o
@@ -204,6 +303,7 @@ def candidates(
     pool.sort(
         key=lambda g: (
             (0 if occasion in (g.get("occasions") or []) else 1) if occasion else 0,
+            _temp_material_penalty(g, temperature),
             1 if g.get("primary_color") in AVOID else 0,
         )
     )
@@ -217,6 +317,7 @@ def compose(
     garments: list[dict],
     occasion: Optional[str] = None,
     season: Optional[str] = None,
+    temperature: Optional[str] = None,
     rng: Optional[random.Random] = None,
 ) -> Look:
     rng = rng or random
@@ -246,9 +347,9 @@ def compose(
         colors.append(g.get("primary_color"))
 
     # --- base: full_body OU top+bottom ---
-    full_cands = _cands(pools, Category.FULL_BODY.value, target_rank, season, colors)
-    top_cands = _cands(pools, Category.TOP.value, target_rank, season, colors)
-    bottom_cands = _cands(pools, Category.BOTTOM.value, target_rank, season, colors)
+    full_cands = _cands(pools, Category.FULL_BODY.value, target_rank, season, colors, temperature)
+    top_cands = _cands(pools, Category.TOP.value, target_rank, season, colors, temperature)
+    bottom_cands = _cands(pools, Category.BOTTOM.value, target_rank, season, colors, temperature)
 
     prefer_full = bool(full_cands) and (not (top_cands and bottom_cands) or rng.random() < 0.4)
     if prefer_full:
@@ -257,7 +358,7 @@ def compose(
         if top_cands:
             commit(rng.choice(top_cands))
         # o bottom precisa harmonizar com a cor já escolhida
-        bottom_cands = _cands(pools, Category.BOTTOM.value, target_rank, season, colors)
+        bottom_cands = _cands(pools, Category.BOTTOM.value, target_rank, season, colors, temperature)
         if bottom_cands:
             commit(rng.choice(bottom_cands))
 
@@ -266,23 +367,25 @@ def compose(
         target_rank = FORMALITY_RANK.get(chosen[0].get("formality"))
 
     # --- calçado (essencial) ---
-    shoe_cands = _cands(pools, Category.FOOTWEAR.value, target_rank, season, colors)
+    shoe_cands = _cands(pools, Category.FOOTWEAR.value, target_rank, season, colors, temperature)
     if shoe_cands:
         commit(rng.choice(shoe_cands))
 
     # --- extras opcionais ---
-    if season in (Season.OUTONO.value, Season.INVERNO.value) or rng.random() < 0.25:
-        outer = _cands(pools, Category.OUTERWEAR.value, target_rank, season, colors)
+    # Casaco: a temperatura manda (frio pede, quente proíbe); sem temperatura,
+    # cai na estação. Materiais quentes já são favorecidos pelo _cands no frio.
+    if wants_outerwear(temperature, season, rng):
+        outer = _cands(pools, Category.OUTERWEAR.value, target_rank, season, colors, temperature)
         if outer:
             commit(rng.choice(outer))
 
     if rng.random() < 0.6:
-        bag = _cands(pools, Category.BAG.value, target_rank, season, colors)
+        bag = _cands(pools, Category.BAG.value, target_rank, season, colors, temperature)
         if bag:
             commit(rng.choice(bag))
 
     if rng.random() < 0.5:
-        acc = _cands(pools, Category.ACCESSORY.value, target_rank, season, colors)
+        acc = _cands(pools, Category.ACCESSORY.value, target_rank, season, colors, temperature)
         if acc:
             commit(rng.choice(acc))
 
@@ -291,4 +394,5 @@ def compose(
         missing=missing_slots(chosen),
         occasion=occasion,
         season=season,
+        temperature=temperature,
     )

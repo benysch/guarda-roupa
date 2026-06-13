@@ -12,8 +12,10 @@ export type LookPiece = {
 export type LookResult = {
   occasion: string | null;
   season: string | null;
+  temperature: string | null;
   rationale: string | null;
   missing: string[];
+  cold_without_coat: boolean;
   pieces: LookPiece[];
 };
 
@@ -66,8 +68,9 @@ async function brainFetch<T>(url: URL): Promise<T> {
 export function composeLook(
   occasion?: string,
   season?: string,
+  temp?: string,
 ): Promise<LookResult> {
-  return brainFetch<LookResult>(brainUrl("/api/look", { occasion, season }));
+  return brainFetch<LookResult>(brainUrl("/api/look", { occasion, season, temp }));
 }
 
 export function searchGarments(q: string, k = 12): Promise<SearchResult> {

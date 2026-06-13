@@ -21,31 +21,41 @@ def _piece(g: dict) -> dict:
     }
 
 
-def compose_look(occasion_raw: str = "", season_raw: str = "") -> dict:
-    """Híbrido estilista IA + regras. Devolve peças escolhidas + justificativa."""
+def compose_look(occasion_raw: str = "", season_raw: str = "", temp_raw: str = "") -> dict:
+    """Híbrido estilista IA + regras. Devolve peças escolhidas + justificativa.
+
+    `temp_raw` é a faixa de temperatura (frio/ameno/quente) — manda no agasalho.
+    """
     occasion = looks.parse_occasion(occasion_raw or "")
     season = looks.parse_season(season_raw or "")
+    temperature = looks.parse_temperature(temp_raw or "")
     garments = storage.fetch_garments()
 
-    cands = looks.candidates(garments, occasion)
+    cands = looks.candidates(garments, occasion, temperature=temperature)
     pieces, rationale = [], None
     if cands:
         by_id = {g["id"]: g for g in cands}
         try:
-            sl = stylist.style_look(cands, occasion=occasion, season=season)
+            sl = stylist.style_look(
+                cands, occasion=occasion, season=season, temperature=temperature
+            )
             chosen = [by_id[i] for i in sl.garment_ids if i in by_id]
             if chosen:
                 pieces, rationale = chosen, sl.rationale
         except Exception:  # estilista falhou -> motor de regras
             pieces = []
     if not pieces:
-        pieces = looks.compose(garments, occasion=occasion, season=season).pieces
+        pieces = looks.compose(
+            garments, occasion=occasion, season=season, temperature=temperature
+        ).pieces
 
     return {
         "occasion": occasion,
         "season": season,
+        "temperature": temperature,
         "rationale": rationale,
         "missing": looks.missing_slots(pieces),
+        "cold_without_coat": looks.cold_without_coat(pieces, temperature),
         "pieces": [_piece(g) for g in pieces],
     }
 

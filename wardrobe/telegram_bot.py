@@ -331,7 +331,8 @@ def _handle_text(tg: Telegram, chat_id: int, text: str) -> None:
             "✨ Ou peça um look pronto:\n"
             "• `/look` — um look qualquer\n"
             "• `/look festa` — por ocasião (festa, trabalho, encontro, praia…)\n"
-            "• `/look trabalho inverno` — ocasião + estação\n\n"
+            "• `/look trabalho frio` — ocasião + clima (frio/ameno/quente) decide o casaco\n"
+            "• `/look encontro inverno quente` — pode juntar estação + temperatura\n\n"
             "🔎 Busca por descrição:\n"
             "• `/buscar blusa leve pra viagem`",
         )
@@ -435,30 +436,35 @@ def _look_caption(occasion, season, pieces: list[dict], rationale: str | None) -
     return "\n".join(lines)
 
 
-def _styled_look(garments, occasion, season) -> tuple[list[dict], str | None]:
+def _styled_look(garments, occasion, season, temperature=None) -> tuple[list[dict], str | None]:
     """Híbrido: regras filtram candidatos -> estilista IA escolhe e explica.
     Cai no motor de regras se a IA falhar ou não devolver peças válidas."""
-    cands = looks.candidates(garments, occasion)
+    cands = looks.candidates(garments, occasion, temperature=temperature)
     if not cands:
         return [], None
     by_id = {g["id"]: g for g in cands}
     try:
-        styled = stylist.style_look(cands, occasion=occasion, season=season)
+        styled = stylist.style_look(
+            cands, occasion=occasion, season=season, temperature=temperature
+        )
         chosen = [by_id[i] for i in styled.garment_ids if i in by_id]
         if chosen:
             return chosen, styled.rationale
     except Exception:
         logger.exception("estilista IA falhou; usando o motor de regras")
-    return looks.compose(garments, occasion=occasion, season=season).pieces, None
+    return looks.compose(
+        garments, occasion=occasion, season=season, temperature=temperature
+    ).pieces, None
 
 
 def _handle_look(tg: Telegram, chat_id: int, text: str) -> None:
     args = text[len("/look"):]
     occasion = looks.parse_occasion(args)
     season = looks.parse_season(args)
+    temperature = looks.parse_temperature(args)
 
     garments = storage.fetch_garments()
-    pieces, rationale = _styled_look(garments, occasion, season)
+    pieces, rationale = _styled_look(garments, occasion, season, temperature)
 
     if not pieces:
         tg.send_message(
@@ -483,6 +489,12 @@ def _handle_look(tg: Telegram, chat_id: int, text: str) -> None:
         tg.send_message(
             chat_id,
             f"⚠️ Faltou {faltam} pra completar o look. Cadastre essas peças e o look fica completo!",
+        )
+
+    if looks.cold_without_coat(pieces, temperature):
+        tg.send_message(
+            chat_id,
+            "🧥 Está frio e eu não achei um casaco elegível no acervo — vale cadastrar um agasalho.",
         )
 
 

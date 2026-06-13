@@ -44,6 +44,21 @@ def test_compose_look_usa_estilista(monkeypatch):
     assert out["occasion"] == "dia_a_dia"
 
 
+def test_compose_look_temperatura_e_aviso_de_frio(monkeypatch):
+    monkeypatch.setattr(storage, "fetch_garments", lambda *a, **k: WARDROBE)
+
+    class SL:
+        garment_ids = ["a", "b", "c"]
+        rationale = "frio porém elegante"
+
+    monkeypatch.setattr(stylist, "style_look", lambda *a, **k: SL())
+
+    out = webapi.compose_look("dia", "", "frio")
+    assert out["temperature"] == "frio"
+    # acervo sem outerwear -> avisa que está frio e não há casaco
+    assert out["cold_without_coat"] is True
+
+
 def test_compose_look_fallback_quando_estilista_falha(monkeypatch):
     monkeypatch.setattr(storage, "fetch_garments", lambda *a, **k: WARDROBE)
 

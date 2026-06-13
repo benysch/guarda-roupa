@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 
 const OCCASIONS: [string, string][] = [
   ["", "Qualquer"],
@@ -23,26 +24,79 @@ const SEASONS: [string, string][] = [
   ["primavera", "Primavera"],
 ];
 
+const TEMPERATURES: [string, string][] = [
+  ["", "Qualquer"],
+  ["frio", "❄️ Frio"],
+  ["ameno", "🌤️ Ameno"],
+  ["quente", "☀️ Quente"],
+];
+
+/** °C -> faixa. Mesmo limiar do motor (looks.temp_from_celsius). */
+function bandFromCelsius(c: number): string {
+  if (c < 15) return "frio";
+  if (c < 24) return "ameno";
+  return "quente";
+}
+
 export function LookControls({
   occasion,
   season,
+  temperature,
   hasLook,
 }: {
   occasion: string;
   season: string;
+  temperature: string;
   hasLook: boolean;
 }) {
   const router = useRouter();
   const [occ, setOcc] = useState(occasion);
   const [sea, setSea] = useState(season);
+  const [temp, setTemp] = useState(temperature);
   const [pending, startTransition] = useTransition();
+  const [locating, setLocating] = useState(false);
 
-  function go(nextOcc: string, nextSea: string) {
+  function go(nextOcc: string, nextSea: string, nextTemp: string) {
     const p = new URLSearchParams();
     if (nextOcc) p.set("occasion", nextOcc);
     if (nextSea) p.set("season", nextSea);
+    if (nextTemp) p.set("temp", nextTemp);
     p.set("r", Math.random().toString(36).slice(2, 8));
     startTransition(() => router.push(`/looks?${p.toString()}`));
+  }
+
+  function useWeather() {
+    if (!("geolocation" in navigator)) {
+      toast.error("Seu navegador não tem geolocalização.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const res = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m`,
+          );
+          const data = await res.json();
+          const c = data?.current?.temperature_2m;
+          if (typeof c !== "number") throw new Error("sem dado");
+          const band = bandFromCelsius(c);
+          setTemp(band);
+          toast.success(`Clima daqui: ${Math.round(c)}°C → ${band}`);
+          go(occ, sea, band);
+        } catch {
+          toast.error("Não consegui pegar o clima agora.");
+        } finally {
+          setLocating(false);
+        }
+      },
+      () => {
+        setLocating(false);
+        toast.error("Permissão de localização negada.");
+      },
+      { timeout: 10000 },
+    );
   }
 
   return (
@@ -55,10 +109,31 @@ export function LookControls({
             active={occ === v}
             onClick={() => {
               setOcc(v);
-              go(v, sea);
+              go(v, sea, temp);
             }}
           />
         ))}
+      </Row>
+      <Row label="Clima">
+        {TEMPERATURES.map(([v, l]) => (
+          <Chip
+            key={v}
+            label={l}
+            active={temp === v}
+            onClick={() => {
+              setTemp(v);
+              go(occ, sea, v);
+            }}
+          />
+        ))}
+        <button
+          type="button"
+          onClick={useWeather}
+          disabled={locating}
+          className="tracking-label cursor-pointer rounded-full border border-dashed border-border px-3 py-1.5 text-[11px] uppercase text-muted-foreground transition-colors hover:border-foreground hover:text-foreground disabled:opacity-50"
+        >
+          {locating ? "Localizando…" : "📍 Usar clima daqui"}
+        </button>
       </Row>
       <Row label="Estação">
         {SEASONS.map(([v, l]) => (
@@ -68,14 +143,14 @@ export function LookControls({
             active={sea === v}
             onClick={() => {
               setSea(v);
-              go(occ, v);
+              go(occ, v, temp);
             }}
           />
         ))}
       </Row>
       <button
         type="button"
-        onClick={() => go(occ, sea)}
+        onClick={() => go(occ, sea, temp)}
         disabled={pending}
         className="tracking-label mt-2 rounded-full bg-primary px-6 py-2.5 text-[11px] uppercase text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
       >
