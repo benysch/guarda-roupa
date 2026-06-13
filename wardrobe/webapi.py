@@ -7,7 +7,7 @@ e a checagem do segredo, e chama estas funções. Reaproveita stylist/looks/
 embeddings/storage (mesma fonte de verdade do bot).
 """
 
-from . import embeddings, looks, storage, stylist
+from . import capsule, embeddings, looks, storage, stylist
 
 
 def _piece(g: dict) -> dict:
@@ -47,6 +47,57 @@ def compose_look(occasion_raw: str = "", season_raw: str = "") -> dict:
         "rationale": rationale,
         "missing": looks.missing_slots(pieces),
         "pieces": [_piece(g) for g in pieces],
+    }
+
+
+def pack_capsule(
+    days_raw: str = "",
+    occasion_raw: str = "",
+    night_raw: str = "",
+    season_raw: str = "",
+) -> dict:
+    """Mala de viagem: traduz a viagem em TripSlots e empacota com capsule.pack.
+
+    Cada dia gera um slot diurno; se houver ocasião de noite, um slot noturno
+    por dia também. Devolve a mala (agrupada por categoria, em ordem de
+    empacotamento) e o look de cada slot, com o que faltou.
+    """
+    try:
+        days = max(1, min(14, int(days_raw or "3")))
+    except ValueError:
+        days = 3
+    occasion = looks.parse_occasion(occasion_raw or "")
+    night = looks.parse_occasion(night_raw or "")
+    season = looks.parse_season(season_raw or "")
+
+    slots: list[capsule.TripSlot] = []
+    for d in range(1, days + 1):
+        slots.append(capsule.TripSlot(label=f"Dia {d}", occasion=occasion, season=season))
+        if night:
+            slots.append(
+                capsule.TripSlot(label=f"Dia {d} — noite", occasion=night, season=season)
+            )
+
+    cap = capsule.pack(storage.fetch_garments(), slots)
+    return {
+        "days": days,
+        "occasion": occasion,
+        "night": night,
+        "season": season,
+        "total": len(cap.pieces),
+        "groups": [
+            {"category": cat, "pieces": [_piece(g) for g in grp]}
+            for cat, grp in cap.by_category().items()
+        ],
+        "looks": [
+            {
+                "label": sl.slot.label,
+                "occasion": sl.slot.occasion,
+                "pieces": [_piece(g) for g in sl.pieces],
+                "missing": sl.missing,
+            }
+            for sl in cap.looks
+        ],
     }
 
 

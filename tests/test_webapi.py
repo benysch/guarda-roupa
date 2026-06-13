@@ -71,6 +71,43 @@ def test_compose_look_ignora_ids_invalidos_do_estilista(monkeypatch):
     assert "a" in ids
 
 
+def test_pack_capsule_shape(monkeypatch):
+    monkeypatch.setattr(storage, "fetch_garments", lambda *a, **k: WARDROBE)
+
+    out = webapi.pack_capsule("2", "dia", "", "")
+    assert out["days"] == 2
+    assert out["occasion"] == "dia_a_dia"
+    assert out["night"] is None
+    assert len(out["looks"]) == 2  # sem noite: 1 slot por dia
+    assert out["looks"][0]["label"] == "Dia 1"
+    # acervo de 1 top/1 bottom/1 calçado -> a mala reusa as mesmas 3 peças
+    assert out["total"] == 3
+    cats = [grp["category"] for grp in out["groups"]]
+    assert cats == ["top", "bottom", "footwear"]
+
+
+def test_pack_capsule_noite_dobra_slots(monkeypatch):
+    monkeypatch.setattr(storage, "fetch_garments", lambda *a, **k: WARDROBE)
+
+    out = webapi.pack_capsule("2", "dia", "encontro", "")
+    assert out["night"] == "encontro"
+    assert [sl["label"] for sl in out["looks"]] == [
+        "Dia 1",
+        "Dia 1 — noite",
+        "Dia 2",
+        "Dia 2 — noite",
+    ]
+
+
+def test_pack_capsule_days_invalido_usa_default(monkeypatch):
+    monkeypatch.setattr(storage, "fetch_garments", lambda *a, **k: WARDROBE)
+
+    out = webapi.pack_capsule("abc", "", "", "")
+    assert out["days"] == 3
+    out = webapi.pack_capsule("99", "", "", "")
+    assert out["days"] == 14  # clamp
+
+
 def test_search_shape(monkeypatch):
     monkeypatch.setattr(webapi.embeddings, "embed", lambda *a, **k: [0.1] * 768)
     monkeypatch.setattr(

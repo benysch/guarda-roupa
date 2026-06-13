@@ -4,6 +4,7 @@ import { logoutAction } from "@/app/actions";
 const NAV = [
   { href: "/", label: "Acervo" },
   { href: "/looks", label: "Looks" },
+  { href: "/mala", label: "Mala" },
   { href: "/buscar", label: "Buscar" },
 ];
 
