@@ -10,10 +10,11 @@ Como é serverless (stateless entre mensagens), o estado da conversa vive na tab
 """
 
 import logging
+import random
 
 import httpx
 
-from . import embeddings, looks, storage, stylist
+from . import embeddings, looks, storage
 from .config import get_settings, get_supabase_client
 from .extractor import ExtractionError, extract_garment
 from .imaging import ImageValidationError, normalize_image
@@ -437,21 +438,15 @@ def _look_caption(occasion, season, pieces: list[dict], rationale: str | None) -
 
 
 def _styled_look(garments, occasion, season, temperature=None) -> tuple[list[dict], str | None]:
-    """Híbrido: regras filtram candidatos -> estilista IA escolhe e explica.
-    Cai no motor de regras se a IA falhar ou não devolver peças válidas."""
-    cands = looks.candidates(garments, occasion, temperature=temperature)
-    if not cands:
-        return [], None
-    by_id = {g["id"]: g for g in cands}
-    try:
-        styled = stylist.style_look(
-            cands, occasion=occasion, season=season, temperature=temperature
-        )
-        chosen = [by_id[i] for i in styled.garment_ids if i in by_id]
+    """Look pré-computado (curadoria do Claude) quando existe; senão motor de regras.
+    Sem IA em tempo real."""
+    by_id = {g["id"]: g for g in garments}
+    curated = storage.get_curated_looks(occasion, season, temperature)
+    if curated:
+        row = random.choice(curated)
+        chosen = [by_id[i] for i in (row.get("garment_ids") or []) if i in by_id]
         if chosen:
-            return chosen, styled.rationale
-    except Exception:
-        logger.exception("estilista IA falhou; usando o motor de regras")
+            return chosen, row.get("rationale")
     return looks.compose(
         garments, occasion=occasion, season=season, temperature=temperature
     ).pieces, None

@@ -1,6 +1,13 @@
 """Testes dos endpoints do cérebro (webapi) com IO mockado (sem rede)."""
 
-from wardrobe import storage, stylist, webapi
+from wardrobe import storage, webapi
+
+
+def _no_curation(monkeypatch):
+    """Sem curadoria pronta e sem rede de log -> cai no motor de regras."""
+    monkeypatch.setattr(storage, "get_curated_looks", lambda *a, **k: [])
+    monkeypatch.setattr(storage, "get_curated_capsule", lambda *a, **k: [])
+    monkeypatch.setattr(storage, "log_request", lambda *a, **k: None)
 
 
 def _g(gid, category, **kw):
@@ -28,30 +35,25 @@ WARDROBE = [
 ]
 
 
-def test_compose_look_usa_estilista(monkeypatch):
+def test_compose_look_usa_curadoria(monkeypatch):
     monkeypatch.setattr(storage, "fetch_garments", lambda *a, **k: WARDROBE)
-
-    class SL:
-        garment_ids = ["a", "b", "c"]
-        rationale = "porque as cores são frias"
-
-    monkeypatch.setattr(stylist, "style_look", lambda *a, **k: SL())
+    monkeypatch.setattr(storage, "log_request", lambda *a, **k: None)
+    monkeypatch.setattr(
+        storage,
+        "get_curated_looks",
+        lambda *a, **k: [{"garment_ids": ["a", "b", "c"], "rationale": "cores frias"}],
+    )
 
     out = webapi.compose_look("dia", "")
     assert [p["id"] for p in out["pieces"]] == ["a", "b", "c"]
-    assert out["rationale"] == "porque as cores são frias"
+    assert out["rationale"] == "cores frias"
     assert out["missing"] == []
     assert out["occasion"] == "dia_a_dia"
 
 
 def test_compose_look_temperatura_e_aviso_de_frio(monkeypatch):
     monkeypatch.setattr(storage, "fetch_garments", lambda *a, **k: WARDROBE)
-
-    class SL:
-        garment_ids = ["a", "b", "c"]
-        rationale = "frio porém elegante"
-
-    monkeypatch.setattr(stylist, "style_look", lambda *a, **k: SL())
+    _no_curation(monkeypatch)
 
     out = webapi.compose_look("dia", "", "frio")
     assert out["temperature"] == "frio"
@@ -59,27 +61,24 @@ def test_compose_look_temperatura_e_aviso_de_frio(monkeypatch):
     assert out["cold_without_coat"] is True
 
 
-def test_compose_look_fallback_quando_estilista_falha(monkeypatch):
+def test_compose_look_sem_curadoria_usa_regras(monkeypatch):
     monkeypatch.setattr(storage, "fetch_garments", lambda *a, **k: WARDROBE)
-
-    def boom(*a, **k):
-        raise RuntimeError("gemini fora do ar")
-
-    monkeypatch.setattr(stylist, "style_look", boom)
+    _no_curation(monkeypatch)
 
     out = webapi.compose_look("dia", "")
     assert len(out["pieces"]) >= 1  # motor de regras assume
     assert out["rationale"] is None
 
 
-def test_compose_look_ignora_ids_invalidos_do_estilista(monkeypatch):
+def test_compose_look_ignora_ids_invalidos_da_curadoria(monkeypatch):
     monkeypatch.setattr(storage, "fetch_garments", lambda *a, **k: WARDROBE)
+    monkeypatch.setattr(storage, "log_request", lambda *a, **k: None)
+    monkeypatch.setattr(
+        storage,
+        "get_curated_looks",
+        lambda *a, **k: [{"garment_ids": ["a", "inexistente"], "rationale": "x"}],
+    )
 
-    class SL:
-        garment_ids = ["a", "inexistente"]
-        rationale = "x"
-
-    monkeypatch.setattr(stylist, "style_look", lambda *a, **k: SL())
     out = webapi.compose_look("dia", "")
     ids = {p["id"] for p in out["pieces"]}
     assert "inexistente" not in ids
@@ -88,6 +87,7 @@ def test_compose_look_ignora_ids_invalidos_do_estilista(monkeypatch):
 
 def test_pack_capsule_shape(monkeypatch):
     monkeypatch.setattr(storage, "fetch_garments", lambda *a, **k: WARDROBE)
+    _no_curation(monkeypatch)
 
     out = webapi.pack_capsule("2", "dia", "", "")
     assert out["days"] == 2
@@ -103,6 +103,7 @@ def test_pack_capsule_shape(monkeypatch):
 
 def test_pack_capsule_noite_dobra_slots(monkeypatch):
     monkeypatch.setattr(storage, "fetch_garments", lambda *a, **k: WARDROBE)
+    _no_curation(monkeypatch)
 
     out = webapi.pack_capsule("2", "dia", "encontro", "")
     assert out["night"] == "encontro"
@@ -116,6 +117,7 @@ def test_pack_capsule_noite_dobra_slots(monkeypatch):
 
 def test_pack_capsule_days_invalido_usa_default(monkeypatch):
     monkeypatch.setattr(storage, "fetch_garments", lambda *a, **k: WARDROBE)
+    _no_curation(monkeypatch)
 
     out = webapi.pack_capsule("abc", "", "", "")
     assert out["days"] == 3

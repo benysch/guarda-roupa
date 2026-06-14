@@ -7,7 +7,13 @@ e a checagem do segredo, e chama estas funções. Reaproveita stylist/looks/
 embeddings/storage (mesma fonte de verdade do bot).
 """
 
-from . import capsule, embeddings, looks, storage, stylist
+import random
+
+from . import capsule, embeddings, looks, storage
+
+
+def _combo_key(*parts) -> str:
+    return "/".join(p or "—" for p in parts)
 
 
 def _piece(g: dict) -> dict:
@@ -21,34 +27,7 @@ def _piece(g: dict) -> dict:
     }
 
 
-def compose_look(occasion_raw: str = "", season_raw: str = "", temp_raw: str = "") -> dict:
-    """Híbrido estilista IA + regras. Devolve peças escolhidas + justificativa.
-
-    `temp_raw` é a faixa de temperatura (frio/ameno/quente) — manda no agasalho.
-    """
-    occasion = looks.parse_occasion(occasion_raw or "")
-    season = looks.parse_season(season_raw or "")
-    temperature = looks.parse_temperature(temp_raw or "")
-    garments = storage.fetch_garments()
-
-    cands = looks.candidates(garments, occasion, temperature=temperature)
-    pieces, rationale = [], None
-    if cands:
-        by_id = {g["id"]: g for g in cands}
-        try:
-            sl = stylist.style_look(
-                cands, occasion=occasion, season=season, temperature=temperature
-            )
-            chosen = [by_id[i] for i in sl.garment_ids if i in by_id]
-            if chosen:
-                pieces, rationale = chosen, sl.rationale
-        except Exception:  # estilista falhou -> motor de regras
-            pieces = []
-    if not pieces:
-        pieces = looks.compose(
-            garments, occasion=occasion, season=season, temperature=temperature
-        ).pieces
-
+def _look_out(occasion, season, temperature, pieces, rationale) -> dict:
     return {
         "occasion": occasion,
         "season": season,
@@ -58,6 +37,34 @@ def compose_look(occasion_raw: str = "", season_raw: str = "", temp_raw: str = "
         "cold_without_coat": looks.cold_without_coat(pieces, temperature),
         "pieces": [_piece(g) for g in pieces],
     }
+
+
+def compose_look(occasion_raw: str = "", season_raw: str = "", temp_raw: str = "") -> dict:
+    """Look pré-computado (curadoria do Claude) quando existe; senão, motor de regras.
+
+    SEM IA em tempo real: a curadoria com "bom gosto" é gerada offline e cacheada em
+    `curated_looks`. `temp_raw` é a faixa de temperatura (frio/ameno/quente).
+    """
+    occasion = looks.parse_occasion(occasion_raw or "")
+    season = looks.parse_season(season_raw or "")
+    temperature = looks.parse_temperature(temp_raw or "")
+    garments = storage.fetch_garments()
+    by_id = {g["id"]: g for g in garments}
+
+    # 1) curadoria pronta -> escolhe uma variação (re-roll pega outra)
+    curated = storage.get_curated_looks(occasion, season, temperature)
+    if curated:
+        row = random.choice(curated)
+        pieces = [by_id[i] for i in (row.get("garment_ids") or []) if i in by_id]
+        if pieces:
+            return _look_out(occasion, season, temperature, pieces, row.get("rationale"))
+
+    # 2) fallback: motor de regras (instantâneo, sem IA) + registra o combo pedido
+    storage.log_request("look", _combo_key(occasion, season, temperature))
+    pieces = looks.compose(
+        garments, occasion=occasion, season=season, temperature=temperature
+    ).pieces
+    return _look_out(occasion, season, temperature, pieces, None)
 
 
 def pack_capsule(
@@ -79,6 +86,12 @@ def pack_capsule(
     occasion = looks.parse_occasion(occasion_raw or "")
     night = looks.parse_occasion(night_raw or "")
     season = looks.parse_season(season_raw or "")
+
+    # cápsula pré-computada quando existe; senão cai nas regras (capsule.pack)
+    curated = storage.get_curated_capsule(days, occasion, night, season, None)
+    if curated:
+        return random.choice(curated)["payload"]
+    storage.log_request("capsule", _combo_key(str(days), occasion, night, season))
 
     slots: list[capsule.TripSlot] = []
     for d in range(1, days + 1):

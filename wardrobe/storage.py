@@ -302,3 +302,50 @@ def mark_notified(job_ids: list[str]) -> None:
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+# --------------------------------------------------------------------------- #
+# Curadoria pré-computada (looks/mala) — o site/bot leem daqui em vez de gerar IA
+# em tempo real. O Claude gera offline e grava; combo sem curadoria cai na regra.
+# --------------------------------------------------------------------------- #
+CURATED_LOOKS = "curated_looks"
+CURATED_CAPSULES = "curated_capsules"
+REQUESTS = "look_requests"
+
+
+def _combo_eq(q, col: str, val):
+    """Filtro de combo: igualdade quando há valor, IS NULL quando ausente."""
+    return q.eq(col, val) if val else q.is_(col, "null")
+
+
+def get_curated_looks(occasion, season, temperature) -> list[dict]:
+    """Looks curados (todas as variações) para um combo exato."""
+    client = get_supabase_client()
+    q = client.table(CURATED_LOOKS).select("*")
+    q = _combo_eq(q, "occasion", occasion)
+    q = _combo_eq(q, "season", season)
+    q = _combo_eq(q, "temperature", temperature)
+    return q.execute().data or []
+
+
+def get_curated_capsule(days: int, occasion, night, season, temperature) -> list[dict]:
+    """Cápsulas curadas para um combo exato de viagem."""
+    client = get_supabase_client()
+    q = client.table(CURATED_CAPSULES).select("*").eq("days", days)
+    q = _combo_eq(q, "occasion", occasion)
+    q = _combo_eq(q, "night", night)
+    q = _combo_eq(q, "season", season)
+    q = _combo_eq(q, "temperature", temperature)
+    return q.execute().data or []
+
+
+def log_request(kind: str, combo: str) -> None:
+    """Registra um combo pedido sem cache (best-effort; prioriza o que gerar depois)."""
+    try:
+        client = get_supabase_client()
+        client.table(REQUESTS).upsert(
+            {"kind": kind, "combo": combo, "last_requested": _now_iso()},
+            on_conflict="kind,combo",
+        ).execute()
+    except Exception:
+        logger.debug("log_request falhou (não-fatal)", exc_info=True)
