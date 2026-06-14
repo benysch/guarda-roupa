@@ -5,3 +5,8 @@ __pycache__/
 relatorio_ingestao.json
 fotos_teste/
 .vercel
+
+# referências de estilo (fotos pessoais, calibração da skill)
+exemplos de looks/
+*.Identifier
+*:Zone.Identifier

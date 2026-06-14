@@ -85,16 +85,16 @@ def test_estacao_filtra_pecas_e_pede_casaco():
     assert "t9" not in ids  # peça de verão fica em casa
 
 
-def test_demove_cor_evita_da_paleta():
+def test_paleta_flexivel_aceita_tom_quente():
+    # Paleta flexível: bege (tom quente) não é demovido — entra normalmente.
     acervo = [
         g(id="tb", category="top", primary_color="bege"),
-        g(id="tw", category="top", primary_color="branco"),
         g(id="b1", category="bottom"),
         g(id="s1", category="footwear"),
     ]
     cap = capsule.pack(acervo, [TripSlot("seg")], include_bag=False)
     top = next(p for p in cap.looks[0].pieces if p["category"] == "top")
-    assert top["id"] == "tw"  # branco (neutro frio) vence bege (evita)
+    assert top["id"] == "tb"
 
 
 def test_harmonia_de_cor_no_look():

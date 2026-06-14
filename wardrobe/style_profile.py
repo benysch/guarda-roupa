@@ -7,11 +7,41 @@ lê `prompt_fragment()` para favorecer as cores que iluminam e evitar as que apa
 """
 
 # Coloração pessoal ativa da cliente.
-ACTIVE_PALETTE = "inverno_frio"
+# FLEXÍVEL por decisão do Muriel (2026-06-14): as referências reais da esposa
+# (exemplos de looks/) mostram gosto QUENTE/terroso + textura + camadas, contrariando
+# o palpite de "inverno frio". Em vez de trocar por outra regra rígida, soltamos a
+# premissa: nenhuma cor é demovida; prioriza-se harmonia, textura e ousadia ancorada.
+# O conhecimento de inverno_frio fica guardado (trocar ACTIVE_PALETTE se ela fizer
+# a análise formal de coloração).
+ACTIVE_PALETTE = "flexivel"
 
 # Bases de conhecimento de coloração (análise sazonal). Adicione outras conforme
 # necessário; cada uma vira um fragmento de prompt para o estilista.
 PALETTES: dict[str, dict] = {
+    "flexivel": {
+        "nome": "Flexível — sem coloração fixa",
+        "subtom": "neutro (sem regra rígida de subtom)",
+        "favorece": [
+            "praticamente todas as cores",
+            "tons quentes/terrosos (oliva, terracota, mostarda, camel, ferrugem)",
+            "tons frios e joia (marinho, vinho, esmeralda, fúcsia)",
+            "neutros (preto, branco, cinza, bege, marrom)",
+        ],
+        "evita": ["nenhuma cor é proibida — priorize harmonia, textura e camadas"],
+        "metais": "prata ou dourado, conforme o look",
+        "extra": "valorize TEXTURA e SOBREPOSIÇÃO; ouse em pares de cor desde que "
+        "uma peça seja a estrela e o resto ancore",
+        "combinacao": [
+            "uma peça statement (cor/textura/estampa) + resto em neutros que aterram",
+            "misturar texturas (tweed, tricô, linho, jeans, couro) eleva o look",
+            "camadas (sobrecamisa, colete, blazer, kimono) dão personalidade",
+            "pares quentes são bem-vindos: terracota + jeans, oliva + preto, marinho + mostarda",
+            "estampa + estampa funciona se uma for neutra (oncinha, listra)",
+        ],
+        # engine: sem demoção de cor — todas concorrem igual; neutros amplos
+        # (neutros_engine omitido -> default amplo de looks.py; evitar_engine vazio).
+        "evitar_engine": [],
+    },
     "inverno_frio": {
         "nome": "Inverno Frio (cool winter)",
         "subtom": "frio (pele de subtom rosado/azulado)",

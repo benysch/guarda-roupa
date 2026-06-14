@@ -35,11 +35,15 @@ def test_garment_text_inclui_descricao_e_facetas():
     assert "Maison X" in t
 
 
-def test_prompt_fragment_paleta_inverno_frio():
+def test_prompt_fragment_flexivel_e_inverno_disponivel():
+    # Default agora é a paleta flexível (sem coloração fixa).
     f = style_profile.prompt_fragment().lower()
-    assert "inverno frio" in f
-    assert "vinho" in f or "bordô" in f
-    assert "prata" in f
+    assert "flexível" in f or "sem coloração fixa" in f
+    assert "textura" in f
+    # O conhecimento de inverno frio segue guardado, acessível por nome.
+    inv = style_profile.prompt_fragment("inverno_frio").lower()
+    assert "inverno frio" in inv
+    assert "vinho" in inv or "bordô" in inv
 
 
 def test_color_family_e_fechada_sem_vinho():

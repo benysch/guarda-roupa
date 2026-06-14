@@ -97,28 +97,26 @@ def test_compose_acervo_vazio():
     assert set(look.missing) == {"top", "bottom", "footwear"}
 
 
-def test_neutrals_sao_da_paleta():
-    # Inverno frio: bege/marrom/dourado NÃO são neutros (lista 'evita' do perfil).
-    assert "bege" not in looks.NEUTRALS
-    assert "marrom" not in looks.NEUTRALS
-    assert "dourado" not in looks.NEUTRALS
-    # Neutros frios permanecem.
+def test_paleta_flexivel_nao_demove():
+    # Paleta flexível (sem coloração fixa): nenhuma cor é demovida e os tons
+    # quentes voltam a contar como neutros.
+    assert looks.AVOID == set()
+    assert {"bege", "marrom", "dourado"} <= looks.NEUTRALS
     assert {"preto", "branco", "cinza", "prateado"} <= looks.NEUTRALS
 
 
-def test_color_ok_bege_e_statement():
-    # Com uma statement já no look, bege não entra mais como neutro universal.
-    assert looks._color_ok(["vermelho"], "bege") is False
+def test_color_ok_bege_neutro_na_flexivel():
+    # Bege é neutro na paleta flexível -> entra mesmo com uma statement no look.
+    assert looks._color_ok(["vermelho"], "bege") is True
 
 
-def test_cands_demove_cor_evita():
+def test_cands_sem_democao_na_flexivel():
     base = {"formality": "casual", "seasons": [], "occasions": []}
     bege = {"id": "1", "category": "top", "primary_color": "bege", **base}
     branco = {"id": "2", "category": "top", "primary_color": "branco", **base}
+    # paleta flexível não demove cor -> ambos entram (mesmo estrato)
     hits = looks._cands([[bege, branco]], "top", None, None, [])
-    assert hits == [branco]  # bege demovida quando há alternativa
-    hits = looks._cands([[bege]], "top", None, None, [])
-    assert hits == [bege]  # mas não bloqueada quando é a única opção
+    assert {h["id"] for h in hits} == {"1", "2"}
 
 
 # --------------------------------------------------------------------------- #
