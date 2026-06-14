@@ -27,11 +27,12 @@ def _piece(g: dict) -> dict:
     }
 
 
-def _look_out(occasion, season, temperature, pieces, rationale) -> dict:
+def _look_out(occasion, season, temperature, boldness, pieces, rationale) -> dict:
     return {
         "occasion": occasion,
         "season": season,
         "temperature": temperature,
+        "boldness": boldness,
         "rationale": rationale,
         "missing": looks.missing_slots(pieces),
         "cold_without_coat": looks.cold_without_coat(pieces, temperature),
@@ -39,32 +40,40 @@ def _look_out(occasion, season, temperature, pieces, rationale) -> dict:
     }
 
 
-def compose_look(occasion_raw: str = "", season_raw: str = "", temp_raw: str = "") -> dict:
+def compose_look(
+    occasion_raw: str = "", season_raw: str = "", temp_raw: str = "", bold_raw: str = ""
+) -> dict:
     """Look pré-computado (curadoria do Claude) quando existe; senão, motor de regras.
 
-    SEM IA em tempo real: a curadoria com "bom gosto" é gerada offline e cacheada em
-    `curated_looks`. `temp_raw` é a faixa de temperatura (frio/ameno/quente).
+    SEM IA em tempo real: a curadoria é gerada offline e cacheada em `curated_looks`.
+    `temp_raw` = faixa de temperatura (frio/ameno/quente); `bold_raw` = ousadia
+    (discreto/equilibrado/ousado), com fallback suave se aquele nível não tiver curadoria.
     """
     occasion = looks.parse_occasion(occasion_raw or "")
     season = looks.parse_season(season_raw or "")
     temperature = looks.parse_temperature(temp_raw or "")
+    boldness = looks.parse_boldness(bold_raw or "")
     garments = storage.fetch_garments()
     by_id = {g["id"]: g for g in garments}
 
-    # 1) curadoria pronta -> escolhe uma variação (re-roll pega outra)
-    curated = storage.get_curated_looks(occasion, season, temperature)
+    # 1) curadoria pronta (filtra por ousadia; se vazio, ignora a ousadia)
+    curated = storage.get_curated_looks(occasion, season, temperature, boldness)
+    if not curated and boldness:
+        curated = storage.get_curated_looks(occasion, season, temperature, None)
     if curated:
         row = random.choice(curated)
         pieces = [by_id[i] for i in (row.get("garment_ids") or []) if i in by_id]
         if pieces:
-            return _look_out(occasion, season, temperature, pieces, row.get("rationale"))
+            return _look_out(
+                occasion, season, temperature, row.get("boldness"), pieces, row.get("rationale")
+            )
 
     # 2) fallback: motor de regras (instantâneo, sem IA) + registra o combo pedido
-    storage.log_request("look", _combo_key(occasion, season, temperature))
+    storage.log_request("look", _combo_key(occasion, season, temperature, boldness))
     pieces = looks.compose(
         garments, occasion=occasion, season=season, temperature=temperature
     ).pieces
-    return _look_out(occasion, season, temperature, pieces, None)
+    return _look_out(occasion, season, temperature, boldness, pieces, None)
 
 
 def pack_capsule(

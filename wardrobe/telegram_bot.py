@@ -437,11 +437,15 @@ def _look_caption(occasion, season, pieces: list[dict], rationale: str | None) -
     return "\n".join(lines)
 
 
-def _styled_look(garments, occasion, season, temperature=None) -> tuple[list[dict], str | None]:
+def _styled_look(
+    garments, occasion, season, temperature=None, boldness=None
+) -> tuple[list[dict], str | None]:
     """Look pré-computado (curadoria do Claude) quando existe; senão motor de regras.
     Sem IA em tempo real."""
     by_id = {g["id"]: g for g in garments}
-    curated = storage.get_curated_looks(occasion, season, temperature)
+    curated = storage.get_curated_looks(occasion, season, temperature, boldness)
+    if not curated and boldness:
+        curated = storage.get_curated_looks(occasion, season, temperature, None)
     if curated:
         row = random.choice(curated)
         chosen = [by_id[i] for i in (row.get("garment_ids") or []) if i in by_id]
@@ -457,9 +461,10 @@ def _handle_look(tg: Telegram, chat_id: int, text: str) -> None:
     occasion = looks.parse_occasion(args)
     season = looks.parse_season(args)
     temperature = looks.parse_temperature(args)
+    boldness = looks.parse_boldness(args)
 
     garments = storage.fetch_garments()
-    pieces, rationale = _styled_look(garments, occasion, season, temperature)
+    pieces, rationale = _styled_look(garments, occasion, season, temperature, boldness)
 
     if not pieces:
         tg.send_message(

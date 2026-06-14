@@ -119,6 +119,7 @@ class handler(BaseHTTPRequestHandler):
                     qs.get("occasion", [""])[0],
                     qs.get("season", [""])[0],
                     qs.get("temp", [""])[0],
+                    qs.get("bold", [""])[0],
                 )
             elif path == "/api/similar":
                 out = webapi.similar(qs.get("id", [""])[0], k)

@@ -122,6 +122,13 @@ def test_cands_sem_democao_na_flexivel():
 # --------------------------------------------------------------------------- #
 # Temperatura
 # --------------------------------------------------------------------------- #
+def test_parse_boldness():
+    assert looks.parse_boldness("um look ousado") == "ousado"
+    assert looks.parse_boldness("algo discreto") == "discreto"
+    assert looks.parse_boldness("classico") == "discreto"
+    assert looks.parse_boldness("festa") is None
+
+
 def test_parse_temperature():
     assert looks.parse_temperature("um look pra hoje, tá frio") == "frio"
     assert looks.parse_temperature("calor demais") == "quente"

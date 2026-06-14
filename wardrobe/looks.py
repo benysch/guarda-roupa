@@ -145,6 +145,31 @@ def parse_temperature(text: str) -> Optional[str]:
     return None
 
 
+# Eixo de OUSADIA dos looks curados (discreto < equilibrado < ousado).
+BOLD_DISCRETO = "discreto"
+BOLD_EQUILIBRADO = "equilibrado"
+BOLD_OUSADO = "ousado"
+_BOLD_ALIASES = {
+    "discreto": BOLD_DISCRETO,
+    "classico": BOLD_DISCRETO,
+    "clássico": BOLD_DISCRETO,
+    "basico": BOLD_DISCRETO,
+    "sobrio": BOLD_DISCRETO,
+    "equilibrado": BOLD_EQUILIBRADO,
+    "medio": BOLD_EQUILIBRADO,
+    "ousado": BOLD_OUSADO,
+    "arrojado": BOLD_OUSADO,
+    "statement": BOLD_OUSADO,
+}
+
+
+def parse_boldness(text: str) -> Optional[str]:
+    for token in text.lower().split():
+        if token in _BOLD_ALIASES:
+            return _BOLD_ALIASES[token]
+    return None
+
+
 def temp_from_celsius(celsius: float) -> str:
     """Mapeia °C -> faixa. Fonte única do limiar (usada pelo botão 'clima daqui')."""
     if celsius < 15:

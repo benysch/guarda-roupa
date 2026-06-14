@@ -51,6 +51,25 @@ def test_compose_look_usa_curadoria(monkeypatch):
     assert out["occasion"] == "dia_a_dia"
 
 
+def test_compose_look_filtra_ousadia_com_fallback(monkeypatch):
+    monkeypatch.setattr(storage, "fetch_garments", lambda *a, **k: WARDROBE)
+    monkeypatch.setattr(storage, "log_request", lambda *a, **k: None)
+    chamadas = []
+
+    def fake(occ, sea, temp, bold=None):
+        chamadas.append(bold)
+        # nível pedido (ousado) sem curadoria -> fallback suave ignora a ousadia
+        if bold:
+            return []
+        return [{"garment_ids": ["a", "b", "c"], "rationale": "r", "boldness": "equilibrado"}]
+
+    monkeypatch.setattr(storage, "get_curated_looks", fake)
+    out = webapi.compose_look("dia", "", "", "ousado")
+    assert chamadas == ["ousado", None]  # tentou ousado, caiu pro qualquer
+    assert [p["id"] for p in out["pieces"]] == ["a", "b", "c"]
+    assert out["boldness"] == "equilibrado"
+
+
 def test_compose_look_temperatura_e_aviso_de_frio(monkeypatch):
     monkeypatch.setattr(storage, "fetch_garments", lambda *a, **k: WARDROBE)
     _no_curation(monkeypatch)

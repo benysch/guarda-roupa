@@ -21,18 +21,27 @@ const TEMP_LABEL: Record<string, string> = {
   quente: "☀️ Quente",
 };
 
+const BOLD_LABEL: Record<string, string> = {
+  discreto: "Discreto",
+  equilibrado: "Equilibrado",
+  ousado: "Ousado",
+};
+
 export default async function LooksPage(props: {
   searchParams: Promise<{
     occasion?: string;
     season?: string;
     temp?: string;
+    bold?: string;
     r?: string;
   }>;
 }) {
   const sp = await props.searchParams;
-  const requested = Boolean(sp.occasion || sp.season || sp.temp || sp.r);
+  const requested = Boolean(
+    sp.occasion || sp.season || sp.temp || sp.bold || sp.r,
+  );
   const look = requested
-    ? await composeLook(sp.occasion, sp.season, sp.temp)
+    ? await composeLook(sp.occasion, sp.season, sp.temp, sp.bold)
     : null;
 
   return (
@@ -52,6 +61,7 @@ export default async function LooksPage(props: {
           occasion={sp.occasion ?? ""}
           season={sp.season ?? ""}
           temperature={sp.temp ?? ""}
+          boldness={sp.bold ?? ""}
           hasLook={!!look}
         />
 
@@ -94,6 +104,7 @@ function LookView({ look }: { look: LookResult }) {
           {title}
         </h2>
         <span className="tracking-label flex shrink-0 gap-3 text-[11px] uppercase text-muted-foreground">
+          {look.boldness && <span>{BOLD_LABEL[look.boldness] ?? look.boldness}</span>}
           {look.temperature && <span>{TEMP_LABEL[look.temperature] ?? look.temperature}</span>}
           {look.season && <span>{look.season}</span>}
         </span>

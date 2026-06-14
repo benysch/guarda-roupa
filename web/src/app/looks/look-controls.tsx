@@ -31,6 +31,13 @@ const TEMPERATURES: [string, string][] = [
   ["quente", "☀️ Quente"],
 ];
 
+const BOLDNESS: [string, string][] = [
+  ["", "Qualquer"],
+  ["discreto", "Discreto"],
+  ["equilibrado", "Equilibrado"],
+  ["ousado", "Ousado"],
+];
+
 /** °C -> faixa. Mesmo limiar do motor (looks.temp_from_celsius). */
 function bandFromCelsius(c: number): string {
   if (c < 15) return "frio";
@@ -42,25 +49,29 @@ export function LookControls({
   occasion,
   season,
   temperature,
+  boldness,
   hasLook,
 }: {
   occasion: string;
   season: string;
   temperature: string;
+  boldness: string;
   hasLook: boolean;
 }) {
   const router = useRouter();
   const [occ, setOcc] = useState(occasion);
   const [sea, setSea] = useState(season);
   const [temp, setTemp] = useState(temperature);
+  const [bol, setBol] = useState(boldness);
   const [pending, startTransition] = useTransition();
   const [locating, setLocating] = useState(false);
 
-  function go(nextOcc: string, nextSea: string, nextTemp: string) {
+  function go(nextOcc: string, nextSea: string, nextTemp: string, nextBol: string) {
     const p = new URLSearchParams();
     if (nextOcc) p.set("occasion", nextOcc);
     if (nextSea) p.set("season", nextSea);
     if (nextTemp) p.set("temp", nextTemp);
+    if (nextBol) p.set("bold", nextBol);
     p.set("r", Math.random().toString(36).slice(2, 8));
     startTransition(() => router.push(`/looks?${p.toString()}`));
   }
@@ -84,7 +95,7 @@ export function LookControls({
           const band = bandFromCelsius(c);
           setTemp(band);
           toast.success(`Clima daqui: ${Math.round(c)}°C → ${band}`);
-          go(occ, sea, band);
+          go(occ, sea, band, bol);
         } catch {
           toast.error("Não consegui pegar o clima agora.");
         } finally {
@@ -109,7 +120,7 @@ export function LookControls({
             active={occ === v}
             onClick={() => {
               setOcc(v);
-              go(v, sea, temp);
+              go(v, sea, temp, bol);
             }}
           />
         ))}
@@ -122,7 +133,7 @@ export function LookControls({
             active={temp === v}
             onClick={() => {
               setTemp(v);
-              go(occ, sea, v);
+              go(occ, sea, v, bol);
             }}
           />
         ))}
@@ -135,6 +146,19 @@ export function LookControls({
           {locating ? "Localizando…" : "📍 Usar clima daqui"}
         </button>
       </Row>
+      <Row label="Ousadia">
+        {BOLDNESS.map(([v, l]) => (
+          <Chip
+            key={v}
+            label={l}
+            active={bol === v}
+            onClick={() => {
+              setBol(v);
+              go(occ, sea, temp, v);
+            }}
+          />
+        ))}
+      </Row>
       <Row label="Estação">
         {SEASONS.map(([v, l]) => (
           <Chip
@@ -143,14 +167,14 @@ export function LookControls({
             active={sea === v}
             onClick={() => {
               setSea(v);
-              go(occ, v, temp);
+              go(occ, v, temp, bol);
             }}
           />
         ))}
       </Row>
       <button
         type="button"
-        onClick={() => go(occ, sea, temp)}
+        onClick={() => go(occ, sea, temp, bol)}
         disabled={pending}
         className="tracking-label mt-2 rounded-full bg-primary px-6 py-2.5 text-[11px] uppercase text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
       >
