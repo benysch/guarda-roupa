@@ -10,6 +10,7 @@ export type LookPiece = {
 };
 
 export type LookResult = {
+  look_id: string | null;
   occasion: string | null;
   season: string | null;
   temperature: string | null;

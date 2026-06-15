@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { logoutAction } from "@/app/actions";
 import { countUnclassified } from "@/lib/wardrobe";
 
 const NAV = [
@@ -52,14 +51,6 @@ export async function SiteHeader({ active }: { active: string }) {
               </span>
             </Link>
           )}
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              className="tracking-label cursor-pointer text-[11px] uppercase text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Sair
-            </button>
-          </form>
         </nav>
       </div>
     </header>

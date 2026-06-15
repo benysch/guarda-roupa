@@ -3,6 +3,7 @@ import { composeLook, type LookResult } from "@/lib/brain";
 import { titleCase } from "@/lib/labels";
 import { LookControls } from "./look-controls";
 import { LookImageButton } from "./look-image-button";
+import { LookFeedback } from "./look-feedback";
 
 export const dynamic = "force-dynamic";
 // o estilista (Gemini) pode levar ~10-25s; dá folga à função
@@ -25,6 +26,12 @@ const BOLD_LABEL: Record<string, string> = {
   discreto: "Discreto",
   equilibrado: "Equilibrado",
   ousado: "Ousado",
+};
+
+const OCC_LABEL: Record<string, string> = {
+  dia_a_dia: "dia a dia",
+  almoco_amigas: "almoço com amigas",
+  jantar: "jantar",
 };
 
 export default async function LooksPage(props: {
@@ -94,7 +101,7 @@ function LookView({ look }: { look: LookResult }) {
   }
 
   const title = look.occasion
-    ? `Look ${look.occasion.replace(/_/g, " ")}`
+    ? `Look ${OCC_LABEL[look.occasion] ?? look.occasion.replace(/_/g, " ")}`
     : "Seu look";
 
   return (
@@ -164,6 +171,8 @@ function LookView({ look }: { look: LookResult }) {
           agasalho.
         </p>
       )}
+
+      <LookFeedback look={look} />
 
       <LookImageButton
         ids={look.pieces.map((p) => p.id)}

@@ -67,6 +67,8 @@ _OCCASION_FORMALITY = {
     Occasion.PRAIA.value: Formality.CASUAL.value,
     Occasion.VIAGEM.value: Formality.CASUAL.value,
     Occasion.ENCONTRO.value: Formality.SMART_CASUAL.value,
+    Occasion.ALMOCO_AMIGAS.value: Formality.SMART_CASUAL.value,
+    Occasion.JANTAR.value: Formality.SMART_CASUAL.value,
     Occasion.TRABALHO.value: Formality.TRABALHO.value,
     Occasion.FESTA.value: Formality.COCKTAIL.value,
     Occasion.CASAMENTO.value: Formality.GALA.value,
@@ -88,6 +90,11 @@ _OCCASION_ALIASES = {
     "viagem": Occasion.VIAGEM.value,
     "encontro": Occasion.ENCONTRO.value,
     "date": Occasion.ENCONTRO.value,
+    "almoco": Occasion.ALMOCO_AMIGAS.value,
+    "almoço": Occasion.ALMOCO_AMIGAS.value,
+    "amigas": Occasion.ALMOCO_AMIGAS.value,
+    "jantar": Occasion.JANTAR.value,
+    "janta": Occasion.JANTAR.value,
     "casa": Occasion.CASA.value,
 }
 _SEASON_ALIASES = {

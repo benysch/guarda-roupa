@@ -294,12 +294,14 @@ class StyleAesthetic(str, Enum):
 class Occasion(str, Enum):
     DIA_A_DIA = "dia_a_dia"
     TRABALHO = "trabalho"
+    ALMOCO_AMIGAS = "almoco_amigas"   # almoço com amigas (casual-chic diurno)
+    JANTAR = "jantar"                 # jantar (noite, mais arrumado)
     FESTA = "festa"
     CASAMENTO = "casamento"
     PRAIA = "praia"
     ACADEMIA = "academia"
     VIAGEM = "viagem"
-    ENCONTRO = "encontro"
+    ENCONTRO = "encontro"   # legado (peças antigas já marcadas); fora do seletor de looks
     CASA = "casa"            # lounge / dormir
 
 

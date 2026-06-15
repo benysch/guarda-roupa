@@ -321,7 +321,7 @@ def _combo_eq(q, col: str, val):
 def get_curated_looks(occasion, season, temperature, boldness=None) -> list[dict]:
     """Looks curados (variações) para um combo exato; filtra por ousadia se informada."""
     client = get_supabase_client()
-    q = client.table(CURATED_LOOKS).select("*")
+    q = client.table(CURATED_LOOKS).select("*").eq("suppressed", False)
     q = _combo_eq(q, "occasion", occasion)
     q = _combo_eq(q, "season", season)
     q = _combo_eq(q, "temperature", temperature)

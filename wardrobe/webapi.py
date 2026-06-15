@@ -27,8 +27,9 @@ def _piece(g: dict) -> dict:
     }
 
 
-def _look_out(occasion, season, temperature, boldness, pieces, rationale) -> dict:
+def _look_out(occasion, season, temperature, boldness, pieces, rationale, look_id=None) -> dict:
     return {
+        "look_id": look_id,  # id da curadoria (None se veio do motor de regras) -> feedback
         "occasion": occasion,
         "season": season,
         "temperature": temperature,
@@ -65,7 +66,8 @@ def compose_look(
         pieces = [by_id[i] for i in (row.get("garment_ids") or []) if i in by_id]
         if pieces:
             return _look_out(
-                occasion, season, temperature, row.get("boldness"), pieces, row.get("rationale")
+                occasion, season, temperature, row.get("boldness"), pieces,
+                row.get("rationale"), look_id=row.get("id"),
             )
 
     # 2) fallback: motor de regras (instantâneo, sem IA) + registra o combo pedido
