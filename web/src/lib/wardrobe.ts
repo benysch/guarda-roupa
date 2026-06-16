@@ -165,3 +165,15 @@ export async function getImageBytes(
   if (error || !data) return null;
   return new Uint8Array(await data.arrayBuffer());
 }
+
+/** Foto (PNG) da modelo vestindo um look curado: objeto `look_<id>.png` no bucket. */
+export async function getLookImageBytes(
+  lookId: string,
+): Promise<Uint8Array | null> {
+  const sb = supabaseAdmin();
+  const { data, error } = await sb.storage
+    .from(BUCKET)
+    .download(`look_${lookId}.png`);
+  if (error || !data) return null;
+  return new Uint8Array(await data.arrayBuffer());
+}

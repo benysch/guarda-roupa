@@ -172,13 +172,27 @@ function LookView({ look }: { look: LookResult }) {
         </p>
       )}
 
-      <LookFeedback look={look} />
+      {look.model_image && look.look_id ? (
+        <figure className="mt-10 border-t border-border pt-8">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`/look-img/${look.look_id}`}
+            alt="O look em uma modelo"
+            className="w-full max-w-md rounded-md border border-border fade-up"
+          />
+          <figcaption className="tracking-label mt-3 text-[10px] uppercase text-muted-foreground">
+            O look na modelo
+          </figcaption>
+        </figure>
+      ) : (
+        <LookImageButton
+          ids={look.pieces.map((p) => p.id)}
+          occasion={look.occasion ?? undefined}
+          season={look.season ?? undefined}
+        />
+      )}
 
-      <LookImageButton
-        ids={look.pieces.map((p) => p.id)}
-        occasion={look.occasion ?? undefined}
-        season={look.season ?? undefined}
-      />
+      <LookFeedback look={look} />
     </article>
   );
 }

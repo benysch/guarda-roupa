@@ -27,9 +27,10 @@ def _piece(g: dict) -> dict:
     }
 
 
-def _look_out(occasion, season, temperature, boldness, pieces, rationale, look_id=None) -> dict:
+def _look_out(occasion, season, temperature, boldness, pieces, rationale, look_id=None, model_image=None) -> dict:
     return {
         "look_id": look_id,  # id da curadoria (None se veio do motor de regras) -> feedback
+        "model_image": model_image,  # chave do objeto da foto na modelo (None = sem foto cacheada)
         "occasion": occasion,
         "season": season,
         "temperature": temperature,
@@ -68,6 +69,7 @@ def compose_look(
             return _look_out(
                 occasion, season, temperature, row.get("boldness"), pieces,
                 row.get("rationale"), look_id=row.get("id"),
+                model_image=row.get("model_image"),
             )
 
     # 2) fallback: motor de regras (instantâneo, sem IA) + registra o combo pedido
