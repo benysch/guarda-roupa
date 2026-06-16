@@ -80,6 +80,7 @@ def _row_from_metadata(
         "category": meta.category.value,
         "subcategory": meta.subcategory.value,
         "primary_color": meta.primary_color.value,
+        "shade": meta.shade.value if meta.shade else None,
         "pattern": meta.pattern.value,
         "material": meta.material.value if meta.material else None,
         "formality": meta.formality.value,

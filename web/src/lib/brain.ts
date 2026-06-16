@@ -5,6 +5,7 @@ export type LookPiece = {
   category: string;
   subcategory: string | null;
   primary_color: string | null;
+  shade: string | null;
   brand: string | null;
   description: string | null;
 };

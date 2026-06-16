@@ -27,8 +27,9 @@ export function GarmentCard({ g, index }: { g: Garment; index: number }) {
             {titleCase(g.subcategory ?? g.category)}
           </h3>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            {[titleCase(g.primary_color), g.brand].filter(Boolean).join(" · ") ||
-              "—"}
+            {[titleCase(g.shade ?? g.primary_color), g.brand]
+              .filter(Boolean)
+              .join(" · ") || "—"}
           </p>
         </div>
         {g.primary_color && (

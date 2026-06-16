@@ -137,7 +137,7 @@ function LookView({ look }: { look: LookResult }) {
                 {titleCase(p.subcategory ?? p.category)}
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {[titleCase(p.primary_color), p.brand]
+                {[titleCase(p.shade ?? p.primary_color), p.brand]
                   .filter(Boolean)
                   .join(" · ") || "—"}
               </p>

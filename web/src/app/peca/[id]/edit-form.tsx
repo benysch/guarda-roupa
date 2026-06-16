@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { CATEGORY_LABELS, CATEGORY_ORDER, COLOR_HEX, titleCase } from "@/lib/labels";
-import { COLORS, MATERIALS, PATTERNS } from "@/lib/vocab";
+import { COLORS, MATERIALS, PATTERNS, SHADES_BY_FAMILY } from "@/lib/vocab";
 import type { Garment } from "@/lib/wardrobe";
 import { classifyAndSave, removeGarment, saveGarment } from "./actions";
 
@@ -25,6 +25,7 @@ export function EditForm({
   const router = useRouter();
   const [category, setCategory] = useState(g.category ?? "");
   const [color, setColor] = useState(g.primary_color ?? "");
+  const [shade, setShade] = useState(g.shade ?? "");
   const [pattern, setPattern] = useState(g.pattern ?? "");
   const [material, setMaterial] = useState(g.material ?? "");
   const [brand, setBrand] = useState(g.brand ?? "");
@@ -36,6 +37,7 @@ export function EditForm({
     const fields = {
       category,
       primary_color: color,
+      shade: shade || null,
       pattern,
       material,
       brand,
@@ -108,11 +110,26 @@ export function EditForm({
             key={v}
             label={l}
             active={color === v}
-            onClick={() => setColor(v)}
+            onClick={() => {
+              setColor(v);
+              // reseta o tom se ele não pertence à nova família
+              if (!(SHADES_BY_FAMILY[v] ?? []).some(([s]) => s === shade)) {
+                setShade("");
+              }
+            }}
             swatch={COLOR_HEX[v]}
           />
         ))}
       </Field>
+
+      {color && (SHADES_BY_FAMILY[color]?.length ?? 0) > 0 && (
+        <Field label="Tom">
+          <Chip label="—" active={shade === ""} onClick={() => setShade("")} />
+          {SHADES_BY_FAMILY[color].map(([v, l]) => (
+            <Chip key={v} label={l} active={shade === v} onClick={() => setShade(v)} />
+          ))}
+        </Field>
+      )}
 
       <Field label="Estampa">
         {PATTERNS.map(([v, l]) => (

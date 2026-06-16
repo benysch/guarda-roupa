@@ -6,6 +6,7 @@ export type Garment = {
   category: string;
   subcategory: string | null;
   primary_color: string | null;
+  shade: string | null;
   material: string | null;
   pattern: string | null;
   formality: string | null;
@@ -21,7 +22,7 @@ export type Garment = {
 };
 
 const COLUMNS =
-  "id,category,subcategory,primary_color,material,pattern,formality,brand,model_name,description,seasons,occasions,image_path,cutout_status,status,created_at";
+  "id,category,subcategory,primary_color,shade,material,pattern,formality,brand,model_name,description,seasons,occasions,image_path,cutout_status,status,created_at";
 
 /** URL da rota /img a usar: recorte aprovado quando houver, senão a original. */
 export function imageSrc(g: Pick<Garment, "id" | "cutout_status">): string {
@@ -95,6 +96,7 @@ export async function getGarment(id: string): Promise<Garment | null> {
 const EDITABLE = [
   "category",
   "primary_color",
+  "shade",
   "pattern",
   "material",
   "brand",

@@ -22,6 +22,7 @@ def _piece(g: dict) -> dict:
         "category": g.get("category"),
         "subcategory": g.get("subcategory"),
         "primary_color": g.get("primary_color"),
+        "shade": g.get("shade"),
         "brand": g.get("brand"),
         "description": g.get("description"),
     }

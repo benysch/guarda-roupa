@@ -172,6 +172,86 @@ class ColorFamily(str, Enum):
     MULTICOR = "multicor"
 
 
+class Shade(str, Enum):
+    """Tom específico (refina a família) — só para display/busca; o motor de
+    looks segue usando a família. Escolha o mais próximo; null se indefinido."""
+
+    # pretos / cinzas
+    PRETO = "preto"
+    GRAFITE = "grafite"
+    CHUMBO = "chumbo"
+    CINZA_CLARO = "cinza_claro"
+    CINZA_MESCLA = "cinza_mescla"
+    # brancos / off
+    BRANCO = "branco"
+    OFF_WHITE = "off_white"
+    GELO = "gelo"
+    CRU = "cru"
+    # beges / marrons
+    BEGE = "bege"
+    AREIA = "areia"
+    NUDE = "nude"
+    TAUPE = "taupe"
+    CAMEL = "camel"
+    CARAMELO = "caramelo"
+    MARROM = "marrom"
+    CHOCOLATE = "chocolate"
+    CAFE = "cafe"
+    # vermelhos / vinhos
+    VERMELHO = "vermelho"
+    CEREJA = "cereja"
+    VINHO = "vinho"
+    BORDO = "bordo"
+    FERRUGEM = "ferrugem"
+    # rosas
+    ROSA = "rosa"
+    ROSA_CLARO = "rosa_claro"
+    ROSA_VELHO = "rosa_velho"
+    SALMAO = "salmao"
+    CORAL = "coral"
+    PINK = "pink"
+    FUCSIA = "fucsia"
+    # laranjas / amarelos
+    LARANJA = "laranja"
+    TERRACOTA = "terracota"
+    MOSTARDA = "mostarda"
+    OCRE = "ocre"
+    AMARELO = "amarelo"
+    AMARELO_CLARO = "amarelo_claro"
+    # verdes
+    VERDE = "verde"
+    VERDE_CLARO = "verde_claro"
+    OLIVA = "oliva"
+    MILITAR = "militar"
+    SALVIA = "salvia"
+    ESMERALDA = "esmeralda"
+    VERDE_AGUA = "verde_agua"
+    MENTA = "menta"
+    PETROLEO = "petroleo"
+    LIMAO = "limao"
+    # azuis
+    AZUL = "azul"
+    MARINHO = "marinho"
+    CELESTE = "celeste"
+    ROYAL = "royal"
+    TURQUESA = "turquesa"
+    INDIGO = "indigo"
+    JEANS_CLARO = "jeans_claro"
+    # roxos
+    ROXO = "roxo"
+    LILAS = "lilas"
+    LAVANDA = "lavanda"
+    AMEIXA = "ameixa"
+    UVA = "uva"
+    # metais
+    DOURADO = "dourado"
+    BRONZE = "bronze"
+    COBRE = "cobre"
+    PRATEADO = "prateado"
+    # genérico
+    MULTICOR = "multicor"
+
+
 class Pattern(str, Enum):
     LISO = "liso"
     LISTRADO = "listrado"
@@ -330,6 +410,11 @@ class GarmentMetadata(BaseModel):
 
     # cor e estampa
     primary_color: ColorFamily = Field(description="Família de cor predominante.")
+    shade: Optional[Shade] = Field(
+        default=None,
+        description="Tom específico que refina a família (ex.: azul->marinho, "
+        "laranja->terracota, vermelho->vinho). Escolha o mais próximo; null se indefinido.",
+    )
     secondary_colors: list[ColorFamily] = Field(
         default_factory=list, description="Outras cores presentes."
     )
