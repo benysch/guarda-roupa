@@ -68,11 +68,12 @@ def _prompt(occasion, season) -> str:
         ctx.append(f"estação: {season}")
     ctx_s = "; ".join(ctx) or "uso geral do dia a dia"
     return (
-        "Fotografia editorial de moda: uma modelo vestindo/usando as peças "
-        "mostradas nas fotos de referência, combinadas como UM único look "
-        f"coerente ({ctx_s}). Corpo inteiro, pose natural, fundo de estúdio "
-        "clean e neutro, luz suave de lookbook. Mantenha fielmente as cores e o "
-        "caimento das peças mostradas.\n" + style_profile.prompt_fragment()
+        "Fotografia editorial de moda: uma modelo vestindo/usando TODAS as peças "
+        "mostradas na imagem de referência (uma colagem com as peças do look), "
+        f"combinadas como UM único look coerente ({ctx_s}). Corpo inteiro, pose "
+        "natural, fundo de estúdio clean e neutro, luz suave de lookbook. Mantenha "
+        "fielmente as cores e o caimento de cada peça mostrada.\n"
+        + style_profile.prompt_fragment()
     )
 
 
@@ -92,38 +93,49 @@ def _call_gemini(parts: list):
     )
 
 
-# Lado máximo das fotos de referência. O Gemini "tila" imagens em blocos de
-# 768px (~258 tokens cada); manter ≤768 deixa cada peça em ~1 tile, derrubando
-# muito a contagem de input tokens (o gargalo do free tier — limite por minuto).
+# Lado máximo da colagem de referência. O Gemini "tila" imagens em blocos de
+# 768px (~258 tokens/tile); juntar TODAS as peças numa única imagem ≤768px deixa
+# o request em ~1 tile (~258 tokens), em vez de N fotos grandes — o que estourava
+# o limite de input tokens/minuto do free tier (orientação do suporte do Google).
 REF_MAX_SIDE = 768
 
 
-def _downscale_jpeg(data: bytes, max_side: int = REF_MAX_SIDE) -> bytes:
-    """Reduz a foto para no máx. `max_side` px (mantém proporção). Best-effort."""
-    try:
-        img = Image.open(io.BytesIO(data)).convert("RGB")
-        if max(img.size) <= max_side:
-            return data
-        img.thumbnail((max_side, max_side))
-        out = io.BytesIO()
-        img.save(out, format="JPEG", quality=85)
-        return out.getvalue()
-    except Exception:  # noqa: BLE001 — se falhar, manda a original
-        return data
+def _collage(images: list[bytes], max_side: int = REF_MAX_SIDE) -> bytes:
+    """Monta UMA imagem (grade em fundo branco) com todas as peças do look."""
+    pics = []
+    for data in images:
+        try:
+            pics.append(Image.open(io.BytesIO(data)).convert("RGB"))
+        except Exception:  # noqa: BLE001 — ignora foto ilegível
+            continue
+    if not pics:
+        raise ImageGenError("nenhuma foto de peça disponível para o look")
+
+    cols = 1 if len(pics) == 1 else 2
+    rows = (len(pics) + cols - 1) // cols
+    cell = max_side // cols
+    canvas = Image.new("RGB", (cols * cell, rows * cell), "white")
+    for i, pic in enumerate(pics):
+        pic.thumbnail((cell, cell))
+        x = (i % cols) * cell + (cell - pic.width) // 2
+        y = (i // cols) * cell + (cell - pic.height) // 2
+        canvas.paste(pic, (x, y))
+    out = io.BytesIO()
+    canvas.save(out, format="JPEG", quality=85)
+    return out.getvalue()
 
 
 def generate_look_image(garment_ids: list[str], occasion=None, season=None) -> bytes:
     """Gera a imagem PNG do look. Lança QuotaError (429) ou ImageGenError."""
-    parts: list = []
-    for gid in garment_ids:
-        img = storage.download_image(gid)
-        if img:
-            img = _downscale_jpeg(img)
-            parts.append(types.Part.from_bytes(data=img, mime_type="image/jpeg"))
-    if not parts:
+    raw = [img for gid in garment_ids if (img := storage.download_image(gid))]
+    if not raw:
         raise ImageGenError("nenhuma foto de peça disponível para o look")
 
-    parts.append(_prompt(occasion, season))
+    # UMA colagem com todas as peças (input enxuto) + o prompt.
+    parts: list = [
+        types.Part.from_bytes(data=_collage(raw), mime_type="image/jpeg"),
+        _prompt(occasion, season),
+    ]
 
     try:
         resp = _call_gemini(parts)
