@@ -10,6 +10,7 @@ Tratamento de 429:
   mapeado direto para QuotaError para a camada de cima dar uma resposta gentil.
 """
 
+import logging
 import os
 
 from google.genai import types
@@ -23,6 +24,8 @@ from tenacity import (
 
 from . import storage, style_profile
 from .config import get_gemini_client
+
+logger = logging.getLogger(__name__)
 
 IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image")
 
@@ -103,6 +106,11 @@ def generate_look_image(garment_ids: list[str], occasion=None, season=None) -> b
         resp = _call_gemini(parts)
     except Exception as exc:  # noqa: BLE001 — classifica por mensagem/código
         msg = str(exc)
+        # diagnóstico: a mensagem bruta do Gemini distingue billing × modelo × limite
+        logger.warning(
+            "look-image falhou (modelo=%s, code=%s): %s",
+            IMAGE_MODEL, getattr(exc, "code", None), msg[:400],
+        )
         if getattr(exc, "code", None) == 429 or "RESOURCE_EXHAUSTED" in msg or "429" in msg:
             raise QuotaError(msg) from exc
         raise ImageGenError(msg) from exc
