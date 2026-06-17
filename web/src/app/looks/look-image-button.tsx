@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 type State = "idle" | "loading" | "done" | "error" | "quota";
 
@@ -15,10 +15,19 @@ export function LookImageButton({
 }) {
   const [state, setState] = useState<State>("idle");
   const [src, setSrc] = useState<string | null>(null);
+  const inFlight = useRef(false);
 
   async function generate() {
+    // Trava de re-entrância: ignora cliques enquanto uma geração está em curso.
+    // Cobre rajadas de cliques no mesmo tick, antes do re-render desabilitar o botão.
+    if (inFlight.current) return;
+    inFlight.current = true;
+
     setState("loading");
-    setSrc(null);
+    setSrc((prev) => {
+      if (prev) URL.revokeObjectURL(prev); // libera o blob anterior ao regerar
+      return null;
+    });
     try {
       const p = new URLSearchParams({ ids: ids.join(",") });
       if (occasion) p.set("occasion", occasion);
@@ -35,8 +44,12 @@ export function LookImageButton({
       }
     } catch {
       setState("error");
+    } finally {
+      inFlight.current = false;
     }
   }
+
+  const loading = state === "loading";
 
   return (
     <div className="mt-10 border-t border-border pt-8">
@@ -54,19 +67,20 @@ export function LookImageButton({
           <button
             type="button"
             onClick={generate}
-            className="tracking-label mt-3 text-[11px] uppercase text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            disabled={loading}
+            className="tracking-label mt-3 text-[11px] uppercase text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-50 disabled:no-underline disabled:hover:text-muted-foreground"
           >
-            ↻ gerar de novo
+            {loading ? "gerando…" : "↻ gerar de novo"}
           </button>
         </figure>
       ) : (
         <button
           type="button"
           onClick={generate}
-          disabled={state === "loading"}
+          disabled={loading}
           className="tracking-label rounded-full border border-foreground px-6 py-2.5 text-[11px] uppercase transition-colors hover:bg-foreground hover:text-background disabled:opacity-50"
         >
-          {state === "loading" ? "Gerando a modelo…" : "✨ Ver numa modelo"}
+          {loading ? "Gerando a modelo…" : "✨ Ver numa modelo"}
         </button>
       )}
 

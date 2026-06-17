@@ -1,21 +1,30 @@
 """
 Geração de imagem do look: dado os ids das peças, baixa as fotos e pede ao
-Gemini (gemini-2.5-flash-image) uma foto editorial de uma modelo vestindo as
+Gemini (gemini-3.1-flash-image) uma foto editorial de uma modelo vestindo as
 peças, aplicando a paleta da cliente. Reaproveita storage + style_profile.
 
-Atenção: a geração de imagem exige cota/billing na chave do Gemini. Sem isso,
-a API responde 429 RESOURCE_EXHAUSTED — mapeado para QuotaError para a camada de
-cima dar uma resposta gentil.
+Tratamento de 429:
+- 429 transitório (estouro de RPM, ex.: cliques em sequência) -> retry com
+  backoff exponencial + jitter; em geral resolve no 2º/3º try.
+- 429 de cota dura (billing/plano/limite diário) -> sem retry (não adianta),
+  mapeado direto para QuotaError para a camada de cima dar uma resposta gentil.
 """
 
 import os
 
 from google.genai import types
+from google.genai.errors import APIError
+from tenacity import (
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential_jitter,
+)
 
 from . import storage, style_profile
 from .config import get_gemini_client
 
-IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
+IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image")
 
 
 class ImageGenError(RuntimeError):
@@ -24,6 +33,26 @@ class ImageGenError(RuntimeError):
 
 class QuotaError(ImageGenError):
     """Cota/billing de geração de imagem indisponível na chave (429)."""
+
+
+def _is_hard_quota(exc: BaseException) -> bool:
+    """429 de cota dura (billing/plano/limite diário): retry não ajuda."""
+    msg = str(exc).lower()
+    code = getattr(exc, "code", None)
+    is_429 = code == 429 or "429" in msg or "resource_exhausted" in msg
+    if not is_429:
+        return False
+    return any(s in msg for s in ("billing", "plan", "per day", "daily", "free_tier"))
+
+
+def _is_transient(exc: BaseException) -> bool:
+    """429 transitório (RPM/burst de cliques) ou 5xx: vale retry com backoff."""
+    code = getattr(exc, "code", None)
+    if isinstance(exc, APIError) and isinstance(code, int) and code >= 500:
+        return True
+    msg = str(exc).lower()
+    is_429 = code == 429 or "429" in msg or "resource_exhausted" in msg
+    return is_429 and not _is_hard_quota(exc)
 
 
 def _prompt(occasion, season) -> str:
@@ -42,6 +71,22 @@ def _prompt(occasion, season) -> str:
     )
 
 
+@retry(
+    retry=retry_if_exception(_is_transient),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential_jitter(initial=0.5, max=8),
+    reraise=True,
+)
+def _call_gemini(parts: list):
+    """Chamada à API com retry só nos 429 transitórios / 5xx."""
+    client = get_gemini_client()
+    return client.models.generate_content(
+        model=IMAGE_MODEL,
+        contents=parts,
+        config=types.GenerateContentConfig(response_modalities=["IMAGE"]),
+    )
+
+
 def generate_look_image(garment_ids: list[str], occasion=None, season=None) -> bytes:
     """Gera a imagem PNG do look. Lança QuotaError (429) ou ImageGenError."""
     parts: list = []
@@ -54,13 +99,8 @@ def generate_look_image(garment_ids: list[str], occasion=None, season=None) -> b
 
     parts.append(_prompt(occasion, season))
 
-    client = get_gemini_client()
     try:
-        resp = client.models.generate_content(
-            model=IMAGE_MODEL,
-            contents=parts,
-            config=types.GenerateContentConfig(response_modalities=["IMAGE"]),
-        )
+        resp = _call_gemini(parts)
     except Exception as exc:  # noqa: BLE001 — classifica por mensagem/código
         msg = str(exc)
         if getattr(exc, "code", None) == 429 or "RESOURCE_EXHAUSTED" in msg or "429" in msg:
