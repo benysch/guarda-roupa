@@ -10,10 +10,12 @@ Tratamento de 429:
   mapeado direto para QuotaError para a camada de cima dar uma resposta gentil.
 """
 
+import io
 import logging
 import os
 
 from google.genai import types
+from PIL import Image
 from google.genai.errors import APIError
 from tenacity import (
     retry,
@@ -90,12 +92,33 @@ def _call_gemini(parts: list):
     )
 
 
+# Lado máximo das fotos de referência. O Gemini "tila" imagens em blocos de
+# 768px (~258 tokens cada); manter ≤768 deixa cada peça em ~1 tile, derrubando
+# muito a contagem de input tokens (o gargalo do free tier — limite por minuto).
+REF_MAX_SIDE = 768
+
+
+def _downscale_jpeg(data: bytes, max_side: int = REF_MAX_SIDE) -> bytes:
+    """Reduz a foto para no máx. `max_side` px (mantém proporção). Best-effort."""
+    try:
+        img = Image.open(io.BytesIO(data)).convert("RGB")
+        if max(img.size) <= max_side:
+            return data
+        img.thumbnail((max_side, max_side))
+        out = io.BytesIO()
+        img.save(out, format="JPEG", quality=85)
+        return out.getvalue()
+    except Exception:  # noqa: BLE001 — se falhar, manda a original
+        return data
+
+
 def generate_look_image(garment_ids: list[str], occasion=None, season=None) -> bytes:
     """Gera a imagem PNG do look. Lança QuotaError (429) ou ImageGenError."""
     parts: list = []
     for gid in garment_ids:
         img = storage.download_image(gid)
         if img:
+            img = _downscale_jpeg(img)
             parts.append(types.Part.from_bytes(data=img, mime_type="image/jpeg"))
     if not parts:
         raise ImageGenError("nenhuma foto de peça disponível para o look")
