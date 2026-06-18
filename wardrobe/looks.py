@@ -208,8 +208,11 @@ def wants_outerwear(temperature: Optional[str], season: Optional[str], rng: rand
     if temperature == TEMP_FRIO:
         return True
     if temperature == TEMP_AMENO:
-        return rng.random() < 0.5
-    return season in (Season.OUTONO.value, Season.INVERNO.value) or rng.random() < 0.25
+        # ameno também pede uma 3ª peça (casaco leve) — quase sempre, pelo estilo
+        # da cliente (camada = parte do arrojo), não só no frio.
+        return rng.random() < 0.85
+    # sem temperatura: favorece a camada (o look ganha personalidade com ela)
+    return season in (Season.OUTONO.value, Season.INVERNO.value) or rng.random() < 0.55
 
 
 def cold_without_coat(pieces: list[dict], temperature: Optional[str]) -> bool:

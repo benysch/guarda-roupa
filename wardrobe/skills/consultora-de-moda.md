@@ -38,7 +38,8 @@ A cliente acha os looks **fáceis demais**, mesmo no nível ousado. Suba a régu
 ## Clima (usa o `temperature` do combo)
 - **frio** (<~15°C): inclua agasalho/camada (jaqueta, tricô, blazer); tecidos quentes (lã, tricô,
   couro, veludo, tweed). Se não houver outerwear elegível, avise no rationale.
-- **ameno**: a camada leve (sobrecamisa/colete/cardigan) é bem-vinda e dá o ar texturizado.
+- **ameno**: SEMPRE considere uma 3ª peça (casaco leve) — sobrecamisa/colete/cardigan/kimono/blazer/
+  bomber. No ameno a camada é regra, não exceção; é parte do arrojo, não só proteção do frio.
 - **quente** (>~24°C): sem casaco pesado; linho/algodão/viscose/seda, mas a 3ª peça pode ser leve
   (colete, kimono fino) pra não ficar simples.
 

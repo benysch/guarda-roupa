@@ -23,6 +23,7 @@ def _fake_client(png: bytes):
 
 def test_gera_png(monkeypatch):
     monkeypatch.setattr(storage, "download_image", lambda gid: b"\xff\xd8jpeg")
+    monkeypatch.setattr(imagegen, "_collage", lambda imgs: b"collage")
     monkeypatch.setattr(imagegen, "get_gemini_client", lambda: _fake_client(b"PNGBYTES"))
     out = imagegen.generate_look_image(["a", "b"], "festa", "inverno")
     assert out == b"PNGBYTES"
@@ -30,6 +31,7 @@ def test_gera_png(monkeypatch):
 
 def test_429_vira_quota_error(monkeypatch):
     monkeypatch.setattr(storage, "download_image", lambda gid: b"x")
+    monkeypatch.setattr(imagegen, "_collage", lambda imgs: b"collage")
 
     class Models:
         def generate_content(self, **kwargs):
@@ -50,6 +52,7 @@ def test_sem_fotos_levanta_erro(monkeypatch):
 
 def test_resposta_sem_imagem_levanta_erro(monkeypatch):
     monkeypatch.setattr(storage, "download_image", lambda gid: b"x")
+    monkeypatch.setattr(imagegen, "_collage", lambda imgs: b"collage")
     empty = pytypes.SimpleNamespace(
         candidates=[
             pytypes.SimpleNamespace(content=pytypes.SimpleNamespace(parts=[]))
