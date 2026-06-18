@@ -60,6 +60,17 @@ def _is_transient(exc: BaseException) -> bool:
     return is_429 and not _is_hard_quota(exc)
 
 
+# Aparência FIXA da modelo (a cliente), pra toda imagem render a mesma pessoa.
+MODEL_PERSONA = (
+    "A modelo deve ter SEMPRE esta mesma aparência (consistente entre as imagens): "
+    "mulher caucasiana de ~40 anos, magra e atlética (1,67 m, 56 kg). "
+    "Rosto oval, pele clara de textura natural e lisa; olhos grandes e expressivos, "
+    "azul-acinzentados; nariz reto e levemente proeminente; lábios naturais rosados, "
+    "de médios a cheios. Cabelos longos, ondulados naturais, loiro-avermelhado "
+    "(strawberry blonde), com risca levemente deslocada do centro."
+)
+
+
 def _prompt(occasion, season) -> str:
     ctx = []
     if occasion:
@@ -73,6 +84,7 @@ def _prompt(occasion, season) -> str:
         f"combinadas como UM único look coerente ({ctx_s}). Corpo inteiro, pose "
         "natural, fundo de estúdio clean e neutro, luz suave de lookbook. Mantenha "
         "fielmente as cores e o caimento de cada peça mostrada.\n"
+        + MODEL_PERSONA + "\n"
         + style_profile.prompt_fragment()
     )
 
