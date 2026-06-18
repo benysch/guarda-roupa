@@ -34,7 +34,7 @@ export default async function MalaPage(props: {
       <main className="mx-auto max-w-5xl px-6 pb-24">
         <section className="py-10 sm:py-14">
           <p className="tracking-label text-[11px] uppercase text-muted-foreground">
-            Cápsula mínima · paleta inverno frio
+            Cápsula mínima · estilo livre
           </p>
           <h1 className="font-display mt-3 text-5xl tracking-tight sm:text-6xl">
             Mala de Viagem

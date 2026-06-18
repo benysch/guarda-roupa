@@ -57,7 +57,7 @@ export default async function LooksPage(props: {
       <main className="mx-auto max-w-5xl px-6 pb-24">
         <section className="py-10 sm:py-14">
           <p className="tracking-label text-[11px] uppercase text-muted-foreground">
-            Estilista · paleta inverno frio
+            Estilista · estilo livre
           </p>
           <h1 className="font-display mt-3 text-5xl tracking-tight sm:text-6xl">
             Montar Look

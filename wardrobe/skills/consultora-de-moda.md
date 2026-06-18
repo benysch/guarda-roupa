@@ -24,6 +24,17 @@ minimalista frio. Princípios extraídos das referências (Pinterest/flat-lays q
 - **Staples que ela ama:** listra marinheira (breton), sobrecamisa militar, camisa branca/jeans,
   pantalona/linho, calça preta de alfaiataria, tweed cru, colete statement.
 
+## Eixo de OUSADIA (campo `boldness`) — calibrado pelo feedback dela
+A cliente acha os looks **fáceis demais**, mesmo no nível ousado. Suba a régua:
+- **discreto**: neutros + 1 cor; calçado sóbrio; sem print; clean. (É o piso, não o teto.)
+- **equilibrado**: 1 peça-estrela (cor/textura/estampa) + neutros; pode 1 camada leve.
+- **ousado** (o que ela quer de verdade): **NÃO existe ousado sem (1) uma CAMADA estruturante**
+  (sobrecamisa militar, jaqueta de camurça, blazer, kimono, colete bordado, cardigan, bomber)
+  **+ (2) ANIMAL PRINT ou peça statement** (rasteira de oncinha/zebra, Samba de vaca, paetês, veludo,
+  bordado) **+ (3) cor QUENTE de protagonista** (terracota, mostarda, vinho, ameixa, oliva). Busque
+  **mix de estampas** (listra+oncinha), pares de cor inesperados e **high-low** (paetês com jeans,
+  alfaiataria com oncinha). Um look ousado de só top+bottom+calçado liso está ERRADO — falta moda.
+
 ## Clima (usa o `temperature` do combo)
 - **frio** (<~15°C): inclua agasalho/camada (jaqueta, tricô, blazer); tecidos quentes (lã, tricô,
   couro, veludo, tweed). Se não houver outerwear elegível, avise no rationale.
