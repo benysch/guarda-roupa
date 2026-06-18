@@ -59,8 +59,12 @@ def compose_look(
     garments = storage.fetch_garments()
     by_id = {g["id"]: g for g in garments}
 
-    # 1) curadoria pronta (filtra por ousadia; se vazio, ignora a ousadia)
+    # 1) curadoria pronta. Fallback PRESERVANDO a ousadia (o que ela escolheu de
+    #    propósito): primeiro relaxa o CLIMA mantendo o nível; só por último abre
+    #    mão da ousadia. Sem isso, pedir "ousado + frio" caía em look discreto.
     curated = storage.get_curated_looks(occasion, season, temperature, boldness)
+    if not curated and boldness and temperature:
+        curated = storage.get_curated_looks(occasion, season, None, boldness)
     if not curated and boldness:
         curated = storage.get_curated_looks(occasion, season, temperature, None)
     if curated:
