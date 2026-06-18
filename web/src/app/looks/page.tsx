@@ -32,6 +32,7 @@ const OCC_LABEL: Record<string, string> = {
   dia_a_dia: "dia a dia",
   almoco_amigas: "almoço com amigas",
   jantar: "jantar",
+  aniversario_infantil: "aniversário infantil",
 };
 
 export default async function LooksPage(props: {

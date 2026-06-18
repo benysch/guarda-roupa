@@ -376,6 +376,7 @@ class Occasion(str, Enum):
     TRABALHO = "trabalho"
     ALMOCO_AMIGAS = "almoco_amigas"   # almoço com amigas (casual-chic diurno)
     JANTAR = "jantar"                 # jantar (noite, mais arrumado)
+    ANIVERSARIO_INFANTIL = "aniversario_infantil"  # festinha de criança (prático+estiloso)
     FESTA = "festa"
     CASAMENTO = "casamento"
     PRAIA = "praia"

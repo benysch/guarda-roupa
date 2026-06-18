@@ -69,6 +69,7 @@ _OCCASION_FORMALITY = {
     Occasion.ENCONTRO.value: Formality.SMART_CASUAL.value,
     Occasion.ALMOCO_AMIGAS.value: Formality.SMART_CASUAL.value,
     Occasion.JANTAR.value: Formality.SMART_CASUAL.value,
+    Occasion.ANIVERSARIO_INFANTIL.value: Formality.SMART_CASUAL.value,
     Occasion.TRABALHO.value: Formality.TRABALHO.value,
     Occasion.FESTA.value: Formality.COCKTAIL.value,
     Occasion.CASAMENTO.value: Formality.GALA.value,
@@ -95,6 +96,10 @@ _OCCASION_ALIASES = {
     "amigas": Occasion.ALMOCO_AMIGAS.value,
     "jantar": Occasion.JANTAR.value,
     "janta": Occasion.JANTAR.value,
+    "aniversario": Occasion.ANIVERSARIO_INFANTIL.value,
+    "aniversário": Occasion.ANIVERSARIO_INFANTIL.value,
+    "festinha": Occasion.ANIVERSARIO_INFANTIL.value,
+    "infantil": Occasion.ANIVERSARIO_INFANTIL.value,
     "casa": Occasion.CASA.value,
 }
 _SEASON_ALIASES = {

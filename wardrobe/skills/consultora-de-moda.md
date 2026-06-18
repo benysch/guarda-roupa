@@ -50,7 +50,11 @@ minimalista frio. Princípios extraídos das referências (Pinterest/flat-lays q
 ## Eixo de OUSADIA (campo `boldness`) — calibrado pelo feedback dela
 A cliente acha os looks **fáceis demais**, mesmo no nível ousado. Suba a régua:
 - **discreto**: neutros + 1 cor; calçado sóbrio; sem print; clean. (É o piso, não o teto.)
-- **equilibrado**: 1 peça-estrela (cor/textura/estampa) + neutros; pode 1 camada leve.
+- **equilibrado**: versão "vestível" do colorido — **2–3 cores** (uma protagonista + 1 cor de apoio,
+  não só neutros), com uma peça focal (cor/estampa) e calçado bacana (tênis-styling, rasteira, mocassim,
+  scarpin); camada leve quando couber. Mais calmo que o ousado, mas NUNCA sem graça/só-neutro.
+- **aniversário infantil**: prático e estiloso (corre atrás de criança) — calçado confortável
+  (tênis/rasteira/birken), jeans/algodão lavável, cores e estampa à vontade; sem seda/paetê/salto.
 - **ousado** (o que ela quer de verdade): **NÃO existe ousado sem (1) uma CAMADA estruturante**
   (sobrecamisa militar, jaqueta de camurça, blazer, kimono, colete bordado, cardigan, bomber)
   **+ (2) ANIMAL PRINT ou peça statement** (rasteira de oncinha/zebra, Samba de vaca, paetês, veludo,

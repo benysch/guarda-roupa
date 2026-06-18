@@ -10,6 +10,7 @@ const OCCASIONS: [string, string][] = [
   ["trabalho", "Trabalho"],
   ["almoco", "Almoço c/ amigas"],
   ["jantar", "Jantar"],
+  ["aniversario", "Aniversário infantil"],
   ["festa", "Festa"],
   ["viagem", "Viagem"],
   ["praia", "Praia"],
