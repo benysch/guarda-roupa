@@ -12,30 +12,31 @@ beforeEach(() => {
 
 describe("composeLook", () => {
   it("chama /api/look com os params e o header de segredo", async () => {
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        occasion: "festa",
-        season: "inverno",
-        rationale: "porque sim",
-        missing: [],
-        pieces: [],
-      }),
-    }));
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      void init;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          occasion: "festa",
+          season: "inverno",
+          rationale: "porque sim",
+          missing: [],
+          pieces: [],
+        }),
+      };
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     const out = await composeLook("festa", "inverno");
 
-    const [calledUrl, calledOpts] = fetchMock.mock.calls[0] as [
-      URL,
-      { headers: Record<string, string> },
-    ];
+    const [calledUrl, calledOpts] = fetchMock.mock.calls[0];
     const u = new URL(calledUrl.toString());
     expect(u.pathname).toBe("/api/look");
     expect(u.searchParams.get("occasion")).toBe("festa");
     expect(u.searchParams.get("season")).toBe("inverno");
-    expect(calledOpts.headers["X-Brain-Secret"]).toBe("sekret");
+    expect(new Headers(calledOpts?.headers).get("X-Brain-Secret")).toBe("sekret");
     expect(out.rationale).toBe("porque sim");
   });
 
@@ -50,24 +51,28 @@ describe("composeLook", () => {
 
 describe("packCapsule", () => {
   it("chama /api/capsule com todos os params da viagem", async () => {
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        days: 3,
-        occasion: "trabalho",
-        night: "encontro",
-        season: "inverno",
-        total: 0,
-        groups: [],
-        looks: [],
-      }),
-    }));
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      void init;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          days: 3,
+          occasion: "trabalho",
+          night: "encontro",
+          season: "inverno",
+          total: 0,
+          groups: [],
+          looks: [],
+        }),
+      };
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     const out = await packCapsule("3", "trabalho", "encontro", "inverno");
 
-    const [calledUrl] = fetchMock.mock.calls[0] as [URL];
+    const [calledUrl] = fetchMock.mock.calls[0];
     const u = new URL(calledUrl.toString());
     expect(u.pathname).toBe("/api/capsule");
     expect(u.searchParams.get("days")).toBe("3");

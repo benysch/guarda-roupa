@@ -26,3 +26,6 @@ cutout = ["rembg[cpu]>=2.0"]
 # e os endpoints JSON GET /api/look e /api/search para o site).
 [tool.vercel]
 entrypoint = "api.telegram:handler"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

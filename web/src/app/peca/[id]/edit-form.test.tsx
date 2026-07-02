@@ -14,11 +14,19 @@ const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-const saveGarment = vi.fn(async () => {});
-const removeGarment = vi.fn(async () => {});
+const saveGarment = vi.fn(
+  async (id: string, fields: Record<string, string | null>) => {
+    void id;
+    void fields;
+  },
+);
+const removeGarment = vi.fn(async (id: string) => {
+  void id;
+});
 vi.mock("./actions", () => ({
-  saveGarment: (...a: unknown[]) => saveGarment(...a),
-  removeGarment: (...a: unknown[]) => removeGarment(...a),
+  saveGarment: (id: string, fields: Record<string, string | null>) =>
+    saveGarment(id, fields),
+  removeGarment: (id: string) => removeGarment(id),
 }));
 
 import { EditForm } from "./edit-form";
@@ -57,10 +65,7 @@ describe("EditForm — render + binding (Salvar/Apagar)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
 
     await waitFor(() => expect(saveGarment).toHaveBeenCalledTimes(1));
-    const [id, fields] = saveGarment.mock.calls[0] as [
-      string,
-      Record<string, string | null>,
-    ];
+    const [id, fields] = saveGarment.mock.calls[0];
     expect(id).toBe("g1");
     expect(fields.category).toBe("bag");
     expect(fields.primary_color).toBe("preto");

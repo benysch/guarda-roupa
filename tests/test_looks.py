@@ -64,6 +64,118 @@ def test_color_ok():
     assert looks._color_ok(["vermelho"], "preto") is True  # neutro entra sempre
     assert looks._color_ok(["vermelho"], "vermelho") is True  # mesma statement
     assert looks._color_ok(["vermelho"], "azul") is False  # 2 statements diferentes
+    assert looks._color_ok(["vermelho"], "azul", "ousado") is True
+    assert looks._color_ok(["vermelho", "azul"], "amarelo", "ousado") is True
+    assert looks._color_ok(["vermelho", "azul", "amarelo"], "verde", "ousado") is False
+    assert looks._color_ok(["vermelho", "azul", "amarelo"], "vermelho", "ousado") is True
+    assert looks._color_ok(["vermelho"], None, "ousado") is True
+
+
+def test_compose_ousado_prefere_cor_e_estampa():
+    wardrobe = [
+        g(id="t-neutro", category="top", primary_color="preto", pattern="liso"),
+        g(id="t-impacto", category="top", primary_color="vermelho", pattern="floral"),
+        g(id="b-neutro", category="bottom", primary_color="preto", pattern="liso"),
+        g(id="b-contraste", category="bottom", primary_color="azul", pattern="liso"),
+        g(id="f", category="footwear", primary_color="preto", pattern="liso"),
+    ]
+    look = looks.compose(wardrobe, boldness="ousado", rng=random.Random(0))
+    ids = {p["id"] for p in look.pieces}
+    assert "t-impacto" in ids
+    assert "b-contraste" in ids
+
+
+def test_compose_ousado_nao_trata_cor_ausente_como_cor_de_impacto():
+    wardrobe = [
+        g(id="t-sem-cor", category="top", primary_color=None),
+        g(id="t-neutro", category="top", primary_color="preto"),
+        g(id="b", category="bottom"),
+        g(id="f", category="footwear"),
+    ]
+    look = looks.compose(wardrobe, boldness="ousado", rng=random.Random(0))
+    ids = {p["id"] for p in look.pieces}
+    assert "t-neutro" in ids
+    assert "t-sem-cor" not in ids
+
+
+def test_compose_ousado_prefere_cor_nova_a_repetir_statement():
+    wardrobe = [
+        g(id="t", category="top", primary_color="vermelho"),
+        g(id="b-repetido", category="bottom", primary_color="vermelho"),
+        g(id="b-contraste", category="bottom", primary_color="azul"),
+        g(id="f", category="footwear"),
+    ]
+    look = looks.compose(wardrobe, boldness="ousado", rng=random.Random(0))
+    ids = {p["id"] for p in look.pieces}
+    assert "b-contraste" in ids
+    assert "b-repetido" not in ids
+
+
+def test_compose_ousado_prefere_animal_print_e_mix_de_estampas():
+    wardrobe = [
+        g(id="t", category="top", pattern="listrado"),
+        g(id="b", category="bottom"),
+        g(id="f-liso", category="footwear", pattern="liso"),
+        g(id="f-oncinha", category="footwear", pattern="animal_print"),
+    ]
+    look = looks.compose(wardrobe, boldness="ousado", rng=random.Random(0))
+    ids = {p["id"] for p in look.pieces}
+    assert "f-oncinha" in ids
+    assert "f-liso" not in ids
+
+
+def test_compose_ousado_sempre_tenta_bolsa_e_acessorio():
+    wardrobe = [
+        g(id="t", category="top"),
+        g(id="b", category="bottom"),
+        g(id="f", category="footwear"),
+        g(id="bag", category="bag"),
+        g(id="acc", category="accessory"),
+    ]
+    look = looks.compose(wardrobe, boldness="ousado", rng=random.Random(0))
+    assert {"bag", "acc"} <= {p["id"] for p in look.pieces}
+
+
+def test_compose_ousado_usa_terceira_peca_fora_do_calor():
+    wardrobe = [
+        g(id="t", category="top"),
+        g(id="b", category="bottom"),
+        g(id="f", category="footwear"),
+        g(id="coat", category="outerwear"),
+    ]
+    look = looks.compose(
+        wardrobe, temperature="ameno", boldness="ousado", rng=random.Random(2)
+    )
+    assert "coat" in {p["id"] for p in look.pieces}
+
+
+def test_compose_ousado_aceita_apenas_camada_leve_no_calor():
+    wardrobe = [
+        g(id="t", category="top"),
+        g(id="b", category="bottom"),
+        g(id="f", category="footwear"),
+        g(id="casaco", category="outerwear", subcategory="casaco", material="la"),
+        g(id="colete", category="outerwear", subcategory="colete", material="linho"),
+    ]
+    look = looks.compose(
+        wardrobe, temperature="quente", boldness="ousado", rng=random.Random(0)
+    )
+    ids = {p["id"] for p in look.pieces}
+    assert "colete" in ids
+    assert "casaco" not in ids
+
+
+def test_compose_ousado_nao_usa_colete_de_material_quente_no_calor():
+    wardrobe = [
+        g(id="t", category="top"),
+        g(id="b", category="bottom"),
+        g(id="f", category="footwear"),
+        g(id="colete-la", category="outerwear", subcategory="colete", material="la"),
+    ]
+    look = looks.compose(
+        wardrobe, temperature="quente", boldness="ousado", rng=random.Random(0)
+    )
+    assert "colete-la" not in {p["id"] for p in look.pieces}
 
 
 def test_formality_ok():

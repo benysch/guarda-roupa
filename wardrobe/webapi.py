@@ -50,7 +50,8 @@ def compose_look(
 
     SEM IA em tempo real: a curadoria é gerada offline e cacheada em `curated_looks`.
     `temp_raw` = faixa de temperatura (frio/ameno/quente); `bold_raw` = ousadia
-    (discreto/equilibrado/ousado), com fallback suave se aquele nível não tiver curadoria.
+    (discreto/equilibrado/ousado). Sem curadoria no nível solicitado, usa o motor
+    de regras preservando a ousadia.
     """
     occasion = looks.parse_occasion(occasion_raw or "")
     season = looks.parse_season(season_raw or "")
@@ -59,14 +60,13 @@ def compose_look(
     garments = storage.fetch_garments()
     by_id = {g["id"]: g for g in garments}
 
-    # 1) curadoria pronta. Fallback PRESERVANDO a ousadia (o que ela escolheu de
-    #    propósito): primeiro relaxa o CLIMA mantendo o nível; só por último abre
-    #    mão da ousadia. Sem isso, pedir "ousado + frio" caía em look discreto.
+    # 1) curadoria pronta. Primeiro relaxa o CLIMA mantendo o nível de ousadia;
+    #    se ainda não houver curadoria, o motor de regras preserva o nível pedido.
     curated = storage.get_curated_looks(occasion, season, temperature, boldness)
     if not curated and boldness and temperature:
         curated = storage.get_curated_looks(occasion, season, None, boldness)
-    if not curated and boldness:
-        curated = storage.get_curated_looks(occasion, season, temperature, None)
+    # Se o nível pedido não tem curadoria, o motor de regras respeita melhor a
+    # intenção do que escolher silenciosamente um look de outro nível.
     if curated:
         row = random.choice(curated)
         pieces = [by_id[i] for i in (row.get("garment_ids") or []) if i in by_id]
@@ -80,7 +80,8 @@ def compose_look(
     # 2) fallback: motor de regras (instantâneo, sem IA) + registra o combo pedido
     storage.log_request("look", _combo_key(occasion, season, temperature, boldness))
     pieces = looks.compose(
-        garments, occasion=occasion, season=season, temperature=temperature
+        garments, occasion=occasion, season=season, temperature=temperature,
+        boldness=boldness,
     ).pieces
     return _look_out(occasion, season, temperature, boldness, pieces, None)
 

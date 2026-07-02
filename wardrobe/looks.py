@@ -18,7 +18,10 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from . import style_profile
-from .schema import Category, ColorFamily, Formality, Material, Occasion, Season
+from .schema import (
+    Category, ColorFamily, Formality, Material, Occasion, Pattern, Season,
+    Subcategory,
+)
 
 # Escala ordenada de formalidade -> permite medir "distância" entre peças.
 _FORMALITY_ORDER = [
@@ -273,15 +276,99 @@ def _season_ok(g: dict, season: Optional[str]) -> bool:
     return not seasons or season in seasons  # vazio = peça atemporal
 
 
-def _color_ok(colors: list[str], candidate: str) -> bool:
-    if candidate in NEUTRALS:
+_BOLD_COLOR_PARTNERS = {
+    "vermelho": {"rosa", "laranja", "verde", "azul"},
+    "rosa": {"vermelho", "roxo", "laranja", "verde"},
+    "laranja": {"vermelho", "rosa", "amarelo", "azul"},
+    "amarelo": {"laranja", "verde", "roxo", "azul"},
+    "verde": {"amarelo", "azul", "vermelho", "rosa", "roxo"},
+    "azul": {"verde", "roxo", "laranja", "amarelo", "vermelho"},
+    "roxo": {"azul", "rosa", "amarelo", "verde"},
+}
+
+_STATEMENT_MATERIALS = {
+    Material.COURO.value,
+    Material.COURO_SINTETICO.value,
+    Material.RENDA.value,
+    Material.CETIM.value,
+    Material.VELUDO.value,
+    Material.TWEED.value,
+    Material.CROCHE.value,
+}
+
+_LIGHT_LAYER_SUBCATEGORIES = {
+    Subcategory.COLETE.value,
+    Subcategory.KIMONO.value,
+}
+
+
+def _color_ok(colors: list[str], candidate: str, boldness: Optional[str] = None) -> bool:
+    """Valida a paleta sem transformar coerência em uniformidade.
+
+    Discreto/equilibrado preservam a regra segura de uma cor marcante. Ousado
+    aceita até três cores marcantes quando cada nova cor cria uma relação
+    intencional (análoga ou de contraste) com a paleta já escolhida.
+    """
+    if not candidate or candidate in NEUTRALS:
         return True
-    statements = [c for c in colors if c not in NEUTRALS]
-    return all(c == candidate for c in statements)  # no máx. uma cor statement
+    statements = [c for c in colors if c and c not in NEUTRALS]
+    distinct = set(statements)
+    if not distinct or candidate in distinct:
+        return True
+    if boldness != BOLD_OUSADO or len(distinct) >= 3:
+        return False
+    return any(candidate in _BOLD_COLOR_PARTNERS.get(color, set()) for color in distinct)
+
+
+def _boldness_score(g: dict, chosen: list[dict], boldness: Optional[str]) -> int:
+    """Quanto a peça acrescenta interesse visual ao look já escolhido."""
+    if boldness != BOLD_OUSADO:
+        return 0
+    score = 0
+    primary_color = g.get("primary_color")
+    if primary_color and primary_color not in NEUTRALS:
+        chosen_colors = {
+            x.get("primary_color") for x in chosen
+            if x.get("primary_color") and x.get("primary_color") not in NEUTRALS
+        }
+        # Ousadia vem de contraste intencional, não de repetir a cor já usada.
+        score += 4 if primary_color not in chosen_colors else 1
+
+    pattern = g.get("pattern")
+    if pattern not in (None, Pattern.LISO.value):
+        score += 3
+        chosen_patterns = {
+            x.get("pattern") for x in chosen
+            if x.get("pattern") not in (None, Pattern.LISO.value)
+        }
+        if pattern not in chosen_patterns:
+            score += 2
+        if pattern == Pattern.ANIMAL_PRINT.value:
+            score += 2
+    if g.get("material") in _STATEMENT_MATERIALS:
+        score += 1
+    # High-low: uma diferença moderada de formalidade deixa o look menos óbvio.
+    ranks = [FORMALITY_RANK.get(x.get("formality")) for x in chosen]
+    rank = FORMALITY_RANK.get(g.get("formality"))
+    if rank is not None and any(r is not None and abs(rank - r) == 1 for r in ranks):
+        score += 1
+    return score
+
+
+def _hot_layer_ok(g: dict) -> bool:
+    """No calor, aceita só uma terceira peça plausivelmente leve."""
+    material = g.get("material")
+    if material in WARM_MATERIALS:
+        return False
+    return (
+        g.get("subcategory") in _LIGHT_LAYER_SUBCATEGORIES
+        or material in LIGHT_MATERIALS
+    )
 
 
 def _cands(
-    pools: list[list[dict]], category: str, target_rank, season, colors, temperature=None
+    pools: list[list[dict]], category: str, target_rank, season, colors, temperature=None,
+    boldness=None, chosen=None,
 ) -> list[dict]:
     """Candidatos do slot, tentando cada pool em ordem (preferida -> ampla).
 
@@ -296,7 +383,7 @@ def _cands(
             if g.get("category") == category
             and _formality_ok(target_rank, g)
             and _season_ok(g, season)
-            and _color_ok(colors, g.get("primary_color"))
+            and _color_ok(colors, g.get("primary_color"), boldness)
         ]
         if hits:
             def _penalty(g: dict) -> int:
@@ -304,7 +391,14 @@ def _cands(
                 return color_pen + _temp_material_penalty(g, temperature)
 
             best = min(_penalty(g) for g in hits)
-            return [g for g in hits if _penalty(g) == best]
+            best_hits = [g for g in hits if _penalty(g) == best]
+            if boldness == BOLD_OUSADO:
+                top_score = max(_boldness_score(g, chosen or [], boldness) for g in best_hits)
+                return [
+                    g for g in best_hits
+                    if _boldness_score(g, chosen or [], boldness) == top_score
+                ]
+            return best_hits
     return []
 
 
@@ -358,6 +452,7 @@ def compose(
     occasion: Optional[str] = None,
     season: Optional[str] = None,
     temperature: Optional[str] = None,
+    boldness: Optional[str] = None,
     rng: Optional[random.Random] = None,
 ) -> Look:
     rng = rng or random
@@ -387,9 +482,15 @@ def compose(
         colors.append(g.get("primary_color"))
 
     # --- base: full_body OU top+bottom ---
-    full_cands = _cands(pools, Category.FULL_BODY.value, target_rank, season, colors, temperature)
-    top_cands = _cands(pools, Category.TOP.value, target_rank, season, colors, temperature)
-    bottom_cands = _cands(pools, Category.BOTTOM.value, target_rank, season, colors, temperature)
+    def slot(category: str) -> list[dict]:
+        return _cands(
+            pools, category, target_rank, season, colors, temperature,
+            boldness, chosen,
+        )
+
+    full_cands = slot(Category.FULL_BODY.value)
+    top_cands = slot(Category.TOP.value)
+    bottom_cands = slot(Category.BOTTOM.value)
 
     prefer_full = bool(full_cands) and (not (top_cands and bottom_cands) or rng.random() < 0.4)
     if prefer_full:
@@ -398,7 +499,7 @@ def compose(
         if top_cands:
             commit(rng.choice(top_cands))
         # o bottom precisa harmonizar com a cor já escolhida
-        bottom_cands = _cands(pools, Category.BOTTOM.value, target_rank, season, colors, temperature)
+        bottom_cands = slot(Category.BOTTOM.value)
         if bottom_cands:
             commit(rng.choice(bottom_cands))
 
@@ -407,25 +508,28 @@ def compose(
         target_rank = FORMALITY_RANK.get(chosen[0].get("formality"))
 
     # --- calçado (essencial) ---
-    shoe_cands = _cands(pools, Category.FOOTWEAR.value, target_rank, season, colors, temperature)
+    shoe_cands = slot(Category.FOOTWEAR.value)
     if shoe_cands:
         commit(rng.choice(shoe_cands))
 
     # --- extras opcionais ---
-    # Casaco: a temperatura manda (frio pede, quente proíbe); sem temperatura,
-    # cai na estação. Materiais quentes já são favorecidos pelo _cands no frio.
-    if wants_outerwear(temperature, season, rng):
-        outer = _cands(pools, Category.OUTERWEAR.value, target_rank, season, colors, temperature)
+    # Camada: frio pede; no calor, ousado aceita somente colete/kimono ou material
+    # leve. Materiais quentes já são favorecidos pelo _cands no frio.
+    add_outerwear = boldness == BOLD_OUSADO or wants_outerwear(temperature, season, rng)
+    if add_outerwear:
+        outer = slot(Category.OUTERWEAR.value)
+        if temperature == TEMP_QUENTE:
+            outer = [g for g in outer if _hot_layer_ok(g)]
         if outer:
             commit(rng.choice(outer))
 
-    if rng.random() < 0.6:
-        bag = _cands(pools, Category.BAG.value, target_rank, season, colors, temperature)
+    if boldness == BOLD_OUSADO or rng.random() < 0.6:
+        bag = slot(Category.BAG.value)
         if bag:
             commit(rng.choice(bag))
 
-    if rng.random() < 0.5:
-        acc = _cands(pools, Category.ACCESSORY.value, target_rank, season, colors, temperature)
+    if boldness == BOLD_OUSADO or rng.random() < 0.5:
+        acc = slot(Category.ACCESSORY.value)
         if acc:
             commit(rng.choice(acc))
 

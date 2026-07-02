@@ -444,15 +444,16 @@ def _styled_look(
     Sem IA em tempo real."""
     by_id = {g["id"]: g for g in garments}
     curated = storage.get_curated_looks(occasion, season, temperature, boldness)
-    if not curated and boldness:
-        curated = storage.get_curated_looks(occasion, season, temperature, None)
+    if not curated and boldness and temperature:
+        curated = storage.get_curated_looks(occasion, season, None, boldness)
     if curated:
         row = random.choice(curated)
         chosen = [by_id[i] for i in (row.get("garment_ids") or []) if i in by_id]
         if chosen:
             return chosen, row.get("rationale")
     return looks.compose(
-        garments, occasion=occasion, season=season, temperature=temperature
+        garments, occasion=occasion, season=season, temperature=temperature,
+        boldness=boldness,
     ).pieces, None
 
 

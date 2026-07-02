@@ -74,7 +74,7 @@ export function LookControls({
     if (nextSea) p.set("season", nextSea);
     if (nextTemp) p.set("temp", nextTemp);
     if (nextBol) p.set("bold", nextBol);
-    p.set("r", Math.random().toString(36).slice(2, 8));
+    p.set("r", crypto.randomUUID().slice(0, 8));
     startTransition(() => router.push(`/looks?${p.toString()}`));
   }
 
